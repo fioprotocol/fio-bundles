@@ -12,12 +12,13 @@ import (
 )
 
 const finalized uint32 = 240
+
 var erCacheMux = sync.Mutex{}
 
 func watchFinal(ctx context.Context) {
 
 	var busy bool
-	checkQueue := func(){
+	checkQueue := func() {
 		if busy {
 			return
 		}
@@ -34,19 +35,7 @@ func watchFinal(ctx context.Context) {
 			}
 			if expired {
 				logInfo("removing expired transaction from watch queue: " + v.TrxId)
-
-				/* It's not necessary to update the database, the app will handle it on it's own.*/
-
-				//err = v.logTrxResult(ctx, trxTimeout, "addbundles timed out")
-				//if err != nil {
-				//	log.Println(err)
-				//	continue
-				//}
-				//err = v.updateLastTrx(ctx)
-				//if err != nil {
-				//	log.Println(err)
-				//	continue
-				//}
+				/* Note: It's not necessary to update the database, the app will handle it on its own. */
 				delete(erCache, k)
 				continue
 			}
@@ -62,7 +51,7 @@ func watchFinal(ctx context.Context) {
 				log.Println(e)
 				continue
 			}
-			if response.BlockNum >= uint32(v.BlockNum) + finalized {
+			if response.BlockNum >= uint32(v.BlockNum)+finalized {
 				logInfo(fmt.Sprintf("marking tx %s as successful in database", v.TrxId))
 				err = v.logTrxResult(ctx, trxOk, "addbundles transaction finalized")
 				if err != nil {
@@ -106,14 +95,14 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 			heartbeat <- time.Now().UTC()
 
 		case s := <-addBundle:
-			add, err := fio.NewAddBundles(fio.Address(s.Address + "@" + s.Domain), 1, cnf.acc.Actor)
+			add, err := fio.NewAddBundles(fio.Address(s.Address+"@"+s.Domain), 1, cnf.acc.Actor)
 			if err != nil {
 				log.Println(err)
 				continue
 			}
 
 			event := &EventResult{
-				Addr:         s,
+				Addr: s,
 			}
 			gi, err := cnf.api.GetInfo()
 			if err != nil {

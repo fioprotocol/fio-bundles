@@ -60,16 +60,16 @@ func save(sig os.Signal) {
 	log.Println("received", sig, "attempting to save state")
 	f, err := os.OpenFile(cnf.stateFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
+		_ = f.Close()
 		log.Fatal(err)
 	}
-	defer f.Close()
-	//out := gob.NewEncoder(f)
-	//err = out.Encode(cnf.state)
 	b, err := json.Marshal(cnf.state)
 	if err != nil {
+		_ = f.Close()
 		log.Fatal(err)
 	}
 	_, _ = f.Write(b)
+	_ = f.Close()
 	log.Fatal("exiting")
 }
 

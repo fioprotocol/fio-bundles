@@ -308,7 +308,6 @@ func (er *EventResult) isExpired(ctx context.Context) (expired bool, err error) 
 		return
 	}
 	rows := cnf.pg.QueryRow(ctx, "select expiration from blockchain_trx where trx_id=$1 order by expiration desc", er.TrxId)
-	//var t string
 	var ts time.Time
 	err = rows.Scan(&ts)
 	if err != nil {

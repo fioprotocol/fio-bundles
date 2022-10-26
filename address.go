@@ -16,8 +16,7 @@ import (
 
 const (
 	// refreshDuration is the minimum time to wait before re-checking if an address needs more bundles.
-	//refreshDuration = 15 * time.Minute
-	refreshDuration  = 2 * time.Minute
+	refreshDuration  = 15 * time.Minute
 	coolDownDuration = time.Hour
 	// minBundle is the threshold at which an address is renewed.
 	minBundle = 5
@@ -87,7 +86,6 @@ func (a *Address) CheckRemaining() (needsBundle bool, err error) {
 	if len(result) == 0 || result[0].Id == 0 {
 		return false, errors.New("address not found")
 	}
-	//logInfo(fmt.Sprintf("%s expiration is %d", a.DbResponse.Address+"@"+a.DbResponse.Domain, result[0].Expiration))
 	if result[0].Expiration != 0 && result[0].Expiration < time.Now().UTC().Unix() {
 		logInfo(fmt.Sprintf("%s is expired, skipping", a.DbResponse.Address+"@"+a.DbResponse.Domain))
 		a.Expired = true

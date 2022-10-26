@@ -86,6 +86,7 @@ func init() {
 	defer cxl()
 	cnf.pg, e = pgxpool.Connect(timeout, cnf.dbUrl)
 	if e != nil {
+		cxl()
 		log.Fatal(e)
 	}
 	e = cnf.pg.Ping(timeout)
@@ -113,8 +114,8 @@ func init() {
 			badState(err)
 			return
 		}
-		defer f.Close()
 		body, err := io.ReadAll(f)
+		_ = f.Close()
 		if err != nil {
 			badState(err)
 			return
