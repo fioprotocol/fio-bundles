@@ -15,6 +15,10 @@ import (
 
 	"github.com/fioprotocol/fio-go"
 	"github.com/jackc/pgx/v4/pgxpool"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ssm"
 )
 
 // config holds all of our connection information.
@@ -22,8 +26,8 @@ type config struct {
 	url        string
 	wif        string
 	dbUrl      string // expects account:password@hostname/databasename
-	permission string
 	stateFile  string
+	permission string // expect account@permission
 
 	api     *fio.API
 	acc     *fio.Account
@@ -43,9 +47,9 @@ func init() {
 
 	flag.StringVar(&cnf.url, "u", os.Getenv("NODEOS_URL"), "Required: nodeos API url. Alternate ENV: NODEOS_URL")
 	flag.StringVar(&cnf.wif, "k", os.Getenv("WIF"), "Required: private key WIF. Alternate ENV: WIF")
-	flag.StringVar(&cnf.permission, "p", os.Getenv("PERM"), "Optional: permission ex: actor@active. Alternate ENV: PERM")
-	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: state cache filename. Alternate ENV: FILE")
 	flag.StringVar(&cnf.dbUrl, "d", os.Getenv("DB"), "Required: db connection string. Alternate ENV: DB")
+	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: state cache filename. Alternate ENV: FILE")
+	flag.StringVar(&cnf.permission, "p", "", "Optional: permission ex: actor@active.")
 	flag.BoolVar(&cnf.verbose, "v", false, "verbose logging")
 	flag.Parse()
 
@@ -57,6 +61,47 @@ func init() {
 		}
 	}
 
+	sess, err := session.NewSessionWithOptions(session.Options{
+		Config:            aws.Config{Region: aws.String("us-west-2")},
+		SharedConfigState: session.SharedConfigEnable,
+	})
+	if err != nil {
+		panic(err)
+	}
+	ssmsvc := ssm.New(sess)
+
+	if cnf.url == "" {
+		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
+			Name:           aws.String("/bundles-services-fio-bundles/staging/NODEOS_URL"),
+			WithDecryption: aws.Bool(true),
+		})
+		if err != nil {
+			panic(err)
+		}
+		cnf.url = *param.Parameter.Value
+	}
+	if cnf.wif == "" {
+		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
+			Name:           aws.String("/registration/uat/WALLET_PRIVATE_KEY"),
+			WithDecryption: aws.Bool(true),
+		})
+		if err != nil {
+			panic(err)
+		}
+		cnf.wif = *param.Parameter.Value
+	}
+	if cnf.dbUrl == "" {
+		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
+			Name:           aws.String("/registration/uat/DATABASE_URL"),
+			WithDecryption: aws.Bool(true),
+		})
+		if err != nil {
+			panic(err)
+		}
+		cnf.dbUrl = *param.Parameter.Value
+	}
+
+	// Validate required settings
 	if cnf.url == "" {
 		emptyFatal(cnf.url, "No url specified, provide '-u' or set 'NODEOS_URL")
 	}
@@ -66,18 +111,17 @@ func init() {
 	if cnf.dbUrl == "" {
 		emptyFatal(cnf.dbUrl, "No database connection information provided")
 	}
-	if cnf.permission == "" {
-		a, e := fio.NewAccountFromWif(cnf.wif)
-		if e != nil {
-			log.Fatal(e)
+	if cnf.permission != "" {
+		if b, _ := regexp.Match(`^\w+@\w+$`, []byte(cnf.permission)); !b {
+			log.Fatal("permission should be in format account@permission, got:", cnf.permission)
 		}
-		cnf.permission = string(a.Actor) + "@active"
 	}
-
 	emptyFatal(cnf.stateFile, "state cache file cannot be empty")
-	if b, _ := regexp.Match(`^\w+@\w+$`, []byte(cnf.permission)); !b {
-		log.Fatal("permission should be in format account@permission, got:", cnf.permission)
-	}
+
+	logInfo(fmt.Sprintf("API URL: %s", cnf.url))
+	logInfo(fmt.Sprintf("DB URL:  %s", cnf.dbUrl))
+	logInfo(fmt.Sprintf("WIF:     %s", cnf.wif))
+	logInfo(fmt.Sprintf("PERM:    %s", cnf.permission))
 
 	var e error
 
@@ -99,6 +143,7 @@ func init() {
 	if e != nil {
 		log.Fatal(e)
 	}
+	logInfo(fmt.Sprintf("NewWifConnect Account: Actor = %s", cnf.acc.Actor))
 
 	// transactions to monitor for finalization
 	erCache = make(map[string]*EventResult)

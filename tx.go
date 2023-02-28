@@ -4,16 +4,20 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/fioprotocol/fio-go"
-	"github.com/fioprotocol/fio-go/eos"
 	"log"
+	"regexp"
 	"sync"
 	"time"
+
+	"github.com/fioprotocol/fio-go"
+	"github.com/fioprotocol/fio-go/eos"
 )
 
 const finalized uint32 = 240
 
 var erCacheMux = sync.Mutex{}
+
+var matcher = regexp.MustCompile(`^\w+@\w+$`)
 
 func watchFinal(ctx context.Context) {
 
@@ -95,7 +99,34 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 			heartbeat <- time.Now().UTC()
 
 		case s := <-addBundle:
-			add, err := fio.NewAddBundles(fio.Address(s.Address+"@"+s.Domain), 1, cnf.acc.Actor)
+			var actor = cnf.acc.Actor
+			var permission = cnf.permission
+
+			// If no permission specified then go to the db
+			if cnf.permission == "" {
+				var aa, ap string // authorization: actor, permission
+				row := cnf.pg.QueryRow(ctx, "select actor, permission from account_profile where name like '%free%'")
+				err := row.Scan(&aa, &ap)
+				if err == nil {
+					// Override actor with autorization actor
+					actor = eos.AccountName(aa)
+					permission = fmt.Sprintf("%s@%s", aa, ap)
+					log.Println("Permission found in db' permission: ", permission)
+				}
+			}
+
+			// Validate the permission format
+			if permission != "" {
+				if b := matcher.Match([]byte(cnf.permission)); !b {
+					log.Println("permission is not in format account@permission, got:", permission)
+					continue
+				}
+			}
+
+			logInfo(fmt.Sprintf("Address to replenish: %s", s.Address+"@"+s.Domain))
+			logInfo(fmt.Sprintf("Account to use in tx: %s", actor))
+			logInfo(fmt.Sprintf("Permission to use in tx: %s", permission))
+			add, err := fio.NewAddBundlesWithPerm(fio.Address(s.Address+"@"+s.Domain), 1, actor, permission)
 			if err != nil {
 				log.Println(err)
 				continue

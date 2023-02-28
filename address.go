@@ -40,7 +40,7 @@ func NewAddress(dbr *AddressResponse) *Address {
 
 // Stale determines if an address should be checked for remaining bundles
 func (a Address) Stale() bool {
-	if a.Expired == true {
+	if a.Expired {
 		return false
 	}
 	return time.Now().UTC().After(a.Refreshed)
