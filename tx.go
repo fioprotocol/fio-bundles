@@ -140,6 +140,7 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 				log.Println("could not refresh block height before tx", err)
 			}
 
+			// Send transaction to chain
 			result, err := cnf.api.SignPushActions(add)
 			if err != nil {
 				log.Printf("adding bundle for id %d failed: %s (%+v)", s.AccountId, err.Error(), err.(eos.APIError).ErrorStruct)
