@@ -28,7 +28,9 @@ func Run() {
 	go watchDb(ctx, foundAddr, dbAlive)
 	go cnf.state.watch(ctx, foundAddr, addBundles, addrsAlive)
 	go handleTx(ctx, addBundles, txAlive)
-	go watchFinal(ctx)
+	if cnf.persistTx {
+		go watchFinal(ctx)
+	}
 
 	watchdog := time.NewTicker(5 * time.Minute)
 	for {

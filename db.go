@@ -322,5 +322,4 @@ func (er *EventResult) isExpired(ctx context.Context) (expired bool, err error) 
 	}
 
 	return ts.Before(time.Now().UTC()), err
-
 }

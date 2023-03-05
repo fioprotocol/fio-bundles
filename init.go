@@ -43,6 +43,9 @@ var cnf config
 // erCache is a _package-level_ map holding the event results (add bundle transaction metadata)
 var erCache map[string]*EventResult
 
+// matcher is a compiled global regexp
+var matcher = regexp.MustCompile(`^\w+@\w+$`)
+
 // init parses flags or checks environment variables, it updates the package-level 'cnf' struct.
 func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -117,7 +120,7 @@ func init() {
 
 	// Validate optional settings
 	if cnf.permission != "" {
-		if b, _ := regexp.Match(`^\w+@\w+$`, []byte(cnf.permission)); !b {
+		if b := matcher.Match([]byte(cnf.permission)); !b {
 			log.Fatal("permission should be in format account@permission, got:", cnf.permission)
 		}
 	}
