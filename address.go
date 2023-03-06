@@ -18,8 +18,6 @@ const (
 	// refreshDuration is the minimum time to wait before re-checking if an address needs more bundles.
 	refreshDuration  = 15 * time.Minute
 	coolDownDuration = time.Hour
-	// minBundle is the threshold at which an address is renewed.
-	minBundle = 5
 )
 
 // Address holds information used in the address cache
@@ -92,7 +90,7 @@ func (a *Address) CheckRemaining() (needsBundle bool, err error) {
 		return false, expiredErr{}
 	}
 	logInfo(fmt.Sprintf("%s has %d bundled transactions remaining", a.DbResponse.Address+"@"+a.DbResponse.Domain, result[0].Remaining))
-	if result[0].Remaining < minBundle {
+	if result[0].Remaining < uint32(cnf.minBundleTx) {
 		needsBundle = true
 		logInfo(fmt.Sprintf("%s needs bundled transactions", a.DbResponse.Address+"@"+a.DbResponse.Domain))
 	}

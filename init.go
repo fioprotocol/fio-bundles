@@ -29,12 +29,13 @@ type config struct {
 	stateFile  string
 	permission string // expect account@permission
 
-	api       *fio.API
-	acc       *fio.Account
-	pg        *pgxpool.Pool
-	state     *AddressCache
-	persistTx bool
-	verbose   bool
+	api         *fio.API
+	acc         *fio.Account
+	pg          *pgxpool.Pool
+	state       *AddressCache
+	minBundleTx uint
+	persistTx   bool
+	verbose     bool
 }
 
 // cnf is a _package-level_ variable holding a config
@@ -55,6 +56,7 @@ func init() {
 	flag.StringVar(&cnf.dbUrl, "d", os.Getenv("DB"), "Required: db connection string. Alternate ENV: DB")
 	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: state cache filename. Alternate ENV: FILE")
 	flag.StringVar(&cnf.permission, "p", "", "Optional: permission to use to authorize transaction ex: actor@active.")
+	flag.UintVar(&cnf.minBundleTx, "b", 5, "Optional: minimum bundled transaction threshold that an address is renewed.")
 	flag.BoolVar(&cnf.persistTx, "t", false, "Optional: persist transaction data to the database.")
 	flag.BoolVar(&cnf.verbose, "v", false, "verbose logging")
 	flag.Parse()
