@@ -123,7 +123,7 @@ func init() {
 	// Validate optional settings
 	if cnf.permission != "" {
 		if b := matcher.Match([]byte(cnf.permission)); !b {
-			log.Fatal("permission should be in format account@permission, got:", cnf.permission)
+			log.Fatal("permission should be in format actor@permission, got:", cnf.permission)
 		}
 	}
 
