@@ -115,7 +115,7 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 			// Validate the permission format
 			if permission != "" {
 				if b := matcher.Match([]byte(permission)); !b {
-					log.Println("permission is not in format account@permission, got: ", permission)
+					log.Println("permission is not in format actor@permission, got: ", permission)
 					continue
 				}
 			}
