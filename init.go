@@ -51,7 +51,7 @@ var matcher = regexp.MustCompile(`^\w+@\w+$`)
 func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	flag.StringVar(&cnf.apiUrl, "u", os.Getenv("NODEOS_URL"), "Required: nodeos API url. Alternates; ENV ('NODEOS_URL')/AWS Parameter Store")
+	flag.StringVar(&cnf.apiUrl, "u", os.Getenv("NODEOS_API_URL"), "Required: nodeos API url. Alternates; ENV ('NODEOS_API_URL')/AWS Parameter Store")
 	flag.StringVar(&cnf.dbUrl, "d", os.Getenv("DB"), "Required: db connection string. Alternates; ENV ('DB')/AWS Parameter Store")
 	flag.StringVar(&cnf.wif, "k", os.Getenv("WIF"), "Required: private key WIF. Alternates; ENV ('WIF')/AWS Parameter Store")
 	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: state cache filename.")
@@ -80,7 +80,7 @@ func init() {
 
 	if cnf.apiUrl == "" {
 		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
-			Name:           aws.String("/bundles-services-fio-bundles/staging/NODEOS_URL"),
+			Name:           aws.String("/bundles-services-fio-bundles/staging/NODEOS_API_URL"),
 			WithDecryption: aws.Bool(true),
 		})
 		if err != nil {
@@ -111,7 +111,7 @@ func init() {
 
 	// Validate required settings
 	if cnf.apiUrl == "" {
-		emptyFatal(cnf.apiUrl, "No nodeos API URL specified, provide '-u' or set 'NODEOS_URL'")
+		emptyFatal(cnf.apiUrl, "No nodeos API URL specified, provide '-u' or set 'NODEOS_API_URL'")
 	}
 	if cnf.dbUrl == "" {
 		emptyFatal(cnf.dbUrl, "No database connection information specified, provide '-d' or set 'DB'")
