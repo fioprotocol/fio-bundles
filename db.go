@@ -143,7 +143,7 @@ func updateWallets(ctx context.Context) error {
 		if cnf.state.MinDbAccount[i] == 0 {
 			// use a 1 to forcibly create the map key:
 			cnf.state.MinDbAccount[i] = 1
-			logInfo(fmt.Sprintf("discovered new wallet id: %d", i))
+			logInfo(fmt.Sprintf("discovered new wallet (w/ auto_bundle_add=true); name: %s, id: %d", s, i))
 		}
 	}
 	return nil
