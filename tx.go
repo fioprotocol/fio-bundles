@@ -100,7 +100,7 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 			var permission = cnf.permission
 
 			// If no permission specified then go to the db
-			if cnf.permission == "" {
+			if permission == "" {
 				var aa, ap string // authorization: actor, permission
 				row := cnf.pg.QueryRow(ctx, "select actor, permission from account_profile where name like '%free%'")
 				err := row.Scan(&aa, &ap)
