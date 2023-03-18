@@ -32,7 +32,7 @@ func Run() {
 		go watchFinal(ctx)
 	}
 
-	watchdog := time.NewTicker(5 * time.Minute)
+	watchdog := time.NewTicker(cnf.bundlesTicker)
 	for {
 		select {
 		case <-ctx.Done():
@@ -44,7 +44,7 @@ func Run() {
 		case dbLast = <-dbAlive:
 
 		case <-watchdog.C:
-			expired := time.Now().UTC().Add(-5 * time.Minute)
+			expired := time.Now().UTC().Add(-cnf.bundlesTicker)
 			if expired.After(addrsLast) || expired.After(txLast) || expired.After(dbLast) {
 				log.Println("ERROR: watchdog detected stalled goroutine")
 				cancel()

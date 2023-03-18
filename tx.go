@@ -71,7 +71,7 @@ func watchFinal(ctx context.Context) {
 		busy = false
 	}
 
-	tick := time.NewTicker(time.Minute)
+	tick := time.NewTicker(cnf.txFinalTicker)
 	for {
 		select {
 		case <-ctx.Done():
@@ -84,7 +84,7 @@ func watchFinal(ctx context.Context) {
 }
 
 func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat chan time.Time) {
-	tick := time.NewTicker(time.Minute)
+	tick := time.NewTicker(cnf.txTicker)
 
 	for {
 		select {
@@ -120,7 +120,7 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 				}
 			}
 
-			logInfo(fmt.Sprintf("Address to replenish: %s", s.Address+"@"+s.Domain))
+			logInfo(fmt.Sprintf("Address to replenish: %s, Wallet Id: %d", s.Address+"@"+s.Domain, s.WalletId))
 			logInfo(fmt.Sprintf("Account to use in tx: %s", actor))
 			logInfo(fmt.Sprintf("Permission to use in tx: %s", permission))
 			add, err := fio.NewAddBundlesWithPerm(fio.Address(s.Address+"@"+s.Domain), 1, actor, permission)

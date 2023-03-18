@@ -23,6 +23,15 @@ import (
 
 // config holds all of our connection information.
 type config struct {
+	addressTicker time.Duration // address monitor timeout - address tx check
+	bundlesTicker time.Duration // process monitor timeout - process check
+	dbTicker      time.Duration // db wallet/account query timeout - data check
+	txTicker      time.Duration // transaction timeout - add bundle check
+	txFinalTicker time.Duration // transaction finalization timeout - tx cleanup
+
+	refreshDuration  time.Duration // minimum time to wait before re-checking if an address needs more bundles.
+	coolDownDuration time.Duration // minimum time to wait to after an address is bundled
+
 	apiUrl     string
 	wif        string
 	dbUrl      string // expects account:password@hostname/databasename
@@ -49,6 +58,15 @@ var matcher = regexp.MustCompile(`^\w+@\w+$`)
 
 // init parses flags or checks environment variables, it updates the package-level 'cnf' struct.
 func init() {
+	cnf.addressTicker = 30 * time.Second
+	cnf.bundlesTicker = 5 * time.Minute
+	cnf.dbTicker = time.Minute
+	cnf.txTicker = time.Minute
+	cnf.txFinalTicker = time.Minute
+
+	cnf.refreshDuration = 15 * time.Minute
+	cnf.coolDownDuration = time.Hour
+
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	flag.StringVar(&cnf.apiUrl, "u", os.Getenv("NODEOS_API_URL"), "Required: nodeos API url. Alternates; ENV ('NODEOS_API_URL')/AWS Parameter Store")
