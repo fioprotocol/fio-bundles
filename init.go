@@ -64,6 +64,8 @@ var env_param2 string
 
 // init parses flags or checks environment variables, it updates the package-level 'cnf' struct.
 func init() {
+	cnf.awsRegion = "us-west-2"
+
 	cnf.addressTicker = 30 * time.Second
 	cnf.bundlesTicker = 5 * time.Minute
 	cnf.dbTicker = time.Minute
