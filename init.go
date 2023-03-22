@@ -32,11 +32,14 @@ type config struct {
 	refreshDuration  time.Duration // minimum time to wait before re-checking if an address needs more bundles.
 	coolDownDuration time.Duration // minimum time to wait to after an address is bundled
 
-	apiUrl     string
-	wif        string
-	dbUrl      string // expects account:password@hostname/databasename
-	stateFile  string
-	permission string // expect account@permission
+	awsRegion string // Parameter store region
+	uat       bool   // UAT Registration DB/Parameters
+
+	nodeosApiUrl string
+	wif          string
+	dbUrl        string // expects account:password@hostname/databasename
+	stateFile    string
+	permission   string // expect account@permission
 
 	api         *fio.API
 	acc         *fio.Account
@@ -56,6 +59,9 @@ var erCache map[string]*EventResult
 // matcher is a compiled global regexp
 var matcher = regexp.MustCompile(`^\w+@\w+$`)
 
+var env_param1 string
+var env_param2 string
+
 // init parses flags or checks environment variables, it updates the package-level 'cnf' struct.
 func init() {
 	cnf.addressTicker = 30 * time.Second
@@ -67,15 +73,17 @@ func init() {
 	cnf.refreshDuration = 15 * time.Minute
 	cnf.coolDownDuration = time.Hour
 
+	cnf.persistTx = false
+
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	flag.StringVar(&cnf.apiUrl, "u", os.Getenv("NODEOS_API_URL"), "Required: nodeos API url. Alternates; ENV ('NODEOS_API_URL')/AWS Parameter Store")
 	flag.StringVar(&cnf.dbUrl, "d", os.Getenv("DB"), "Required: db connection string. Alternates; ENV ('DB')/AWS Parameter Store")
+	flag.StringVar(&cnf.nodeosApiUrl, "u", os.Getenv("NODEOS_API_URL"), "Required: nodeos API url. Alternates; ENV ('NODEOS_API_URL')/AWS Parameter Store")
 	flag.StringVar(&cnf.wif, "k", os.Getenv("WIF"), "Required: private key WIF. Alternates; ENV ('WIF')/AWS Parameter Store")
 	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: state cache filename.")
 	flag.StringVar(&cnf.permission, "p", "", "Optional: permission to use to authorize transaction ex: actor@active.")
 	flag.UintVar(&cnf.minBundleTx, "b", 5, "Optional: minimum bundled transaction threshold at which an address is renewed.")
-	flag.BoolVar(&cnf.persistTx, "t", false, "Optional: persist transaction data to the database.")
+	flag.BoolVar(&cnf.uat, "t", false, "Optional: use the UAT registration db/parameters")
 	flag.BoolVar(&cnf.verbose, "v", false, "verbose logging")
 	flag.Parse()
 
@@ -87,8 +95,15 @@ func init() {
 		}
 	}
 
+	env_param1 = "production"
+	env_param2 = "node"
+	if cnf.uat {
+		env_param1 = "staging"
+		env_param2 = "uat"
+	}
+
 	sess, err := session.NewSessionWithOptions(session.Options{
-		Config:            aws.Config{Region: aws.String("us-west-2")},
+		Config:            aws.Config{Region: aws.String(cnf.awsRegion)},
 		SharedConfigState: session.SharedConfigEnable,
 	})
 	if err != nil {
@@ -96,19 +111,10 @@ func init() {
 	}
 	ssmsvc := ssm.New(sess)
 
-	if cnf.apiUrl == "" {
-		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
-			Name:           aws.String("/bundles-services-fio-bundles/staging/NODEOS_API_URL"),
-			WithDecryption: aws.Bool(true),
-		})
-		if err != nil {
-			panic(err)
-		}
-		cnf.apiUrl = *param.Parameter.Value
-	}
 	if cnf.dbUrl == "" {
+		var dbUrlParam = fmt.Sprintf("/registration/%s/DATABASE_URL", env_param2)
 		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
-			Name:           aws.String("/registration/uat/DATABASE_URL"),
+			Name:           aws.String(dbUrlParam),
 			WithDecryption: aws.Bool(true),
 		})
 		if err != nil {
@@ -116,9 +122,21 @@ func init() {
 		}
 		cnf.dbUrl = *param.Parameter.Value
 	}
-	if cnf.wif == "" {
+	if cnf.nodeosApiUrl == "" {
+		var apiUrlParam = fmt.Sprintf("/bundles-services-fio-bundles/%s/NODEOS_API_URL", env_param1)
 		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
-			Name:           aws.String("/registration/uat/WALLET_PRIVATE_KEY"),
+			Name:           aws.String(apiUrlParam),
+			WithDecryption: aws.Bool(true),
+		})
+		if err != nil {
+			panic(err)
+		}
+		cnf.nodeosApiUrl = *param.Parameter.Value
+	}
+	if cnf.wif == "" {
+		var wifParam = fmt.Sprintf("/registration/%s/WALLET_PRIVATE_KEY", env_param2)
+		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
+			Name:           aws.String(wifParam),
 			WithDecryption: aws.Bool(true),
 		})
 		if err != nil {
@@ -128,11 +146,11 @@ func init() {
 	}
 
 	// Validate required settings
-	if cnf.apiUrl == "" {
-		emptyFatal(cnf.apiUrl, "No nodeos API URL specified, provide '-u' or set 'NODEOS_API_URL'")
-	}
 	if cnf.dbUrl == "" {
 		emptyFatal(cnf.dbUrl, "No database connection information specified, provide '-d' or set 'DB'")
+	}
+	if cnf.nodeosApiUrl == "" {
+		emptyFatal(cnf.nodeosApiUrl, "No nodeos API URL specified, provide '-u' or set 'NODEOS_API_URL'")
 	}
 	if cnf.wif == "" {
 		emptyFatal(cnf.wif, "No private key present, provide '-k' or set 'WIF'")
@@ -148,13 +166,13 @@ func init() {
 	// Validate state file exists (either default or file explicitly set on command line)
 	emptyFatal(cnf.stateFile, "state cache file cannot be empty")
 
-	logInfo(fmt.Sprintf("NODEOS API URL:  %s", cnf.apiUrl))
 	logInfo(fmt.Sprintf("DB URL:          %s", cnf.dbUrl))
+	logInfo(fmt.Sprintf("NODEOS API URL:  %s", cnf.nodeosApiUrl))
 	logInfo(fmt.Sprintf("WIF:             %s", cnf.wif))
 	logInfo(fmt.Sprintf("PERM:            %s", cnf.permission))
 	logInfo(fmt.Sprintf("Data File:       %s", cnf.stateFile))
 	logInfo(fmt.Sprintf("Min Bundle Tx:   %d", cnf.minBundleTx))
-	logInfo(fmt.Sprintf("Tx Persistence:  %t", cnf.persistTx))
+	logInfo(fmt.Sprintf("Production Env:  %t", !cnf.uat))
 	logInfo(fmt.Sprintf("Verbose Logging: %t", cnf.verbose))
 
 	var e error
@@ -173,7 +191,7 @@ func init() {
 	}
 
 	// connect to API
-	cnf.acc, cnf.api, _, e = fio.NewWifConnect(cnf.wif, cnf.apiUrl)
+	cnf.acc, cnf.api, _, e = fio.NewWifConnect(cnf.wif, cnf.nodeosApiUrl)
 	if e != nil {
 		log.Fatal(e)
 	}
