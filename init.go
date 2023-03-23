@@ -64,8 +64,7 @@ var env_param2 string
 
 // init parses flags or checks environment variables, it updates the package-level 'cnf' struct.
 func init() {
-	cnf.awsRegion = "us-west-2"
-
+	// Set static parameters
 	cnf.addressTicker = 30 * time.Second
 	cnf.bundlesTicker = 5 * time.Minute
 	cnf.dbTicker = time.Minute
@@ -97,11 +96,13 @@ func init() {
 		}
 	}
 
-	env_param1 = "production"
-	env_param2 = "node"
+	cnf.awsRegion = "us-east-1"
+	env_param1 = "node"
+	env_param2 = "production"
 	if cnf.uat {
-		env_param1 = "staging"
-		env_param2 = "uat"
+		cnf.awsRegion = "us-west-2"
+		env_param1 = "uat"
+		env_param2 = "staging"
 	}
 
 	sess, err := session.NewSessionWithOptions(session.Options{
@@ -114,7 +115,7 @@ func init() {
 	ssmsvc := ssm.New(sess)
 
 	if cnf.dbUrl == "" {
-		var dbUrlParam = fmt.Sprintf("/registration/%s/DATABASE_URL", env_param2)
+		var dbUrlParam = fmt.Sprintf("/registration/%s/DATABASE_URL", env_param1)
 		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
 			Name:           aws.String(dbUrlParam),
 			WithDecryption: aws.Bool(true),
@@ -125,7 +126,8 @@ func init() {
 		cnf.dbUrl = *param.Parameter.Value
 	}
 	if cnf.nodeosApiUrl == "" {
-		var apiUrlParam = fmt.Sprintf("/bundles-services-fio-bundles/%s/NODEOS_API_URL", env_param1)
+		// /bundles-services-fio-bundles/staging/NODEOS_API_URL
+		var apiUrlParam = fmt.Sprintf("/bundles-services-fio-bundles/%s/NODEOS_API_URL", env_param2)
 		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
 			Name:           aws.String(apiUrlParam),
 			WithDecryption: aws.Bool(true),
@@ -136,7 +138,7 @@ func init() {
 		cnf.nodeosApiUrl = *param.Parameter.Value
 	}
 	if cnf.wif == "" {
-		var wifParam = fmt.Sprintf("/registration/%s/WALLET_PRIVATE_KEY", env_param2)
+		var wifParam = fmt.Sprintf("/registration/%s/WALLET_PRIVATE_KEY", env_param1)
 		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
 			Name:           aws.String(wifParam),
 			WithDecryption: aws.Bool(true),
