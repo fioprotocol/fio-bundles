@@ -15,6 +15,8 @@ import (
 // Run is the main entrypoint. It will setup channels, launch routines for handling the event queue, and has
 // a watchdog that will exit if any goroutine appears stalled.
 func Run() {
+	log.Println("Starting the fio-bundles application...")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -29,6 +31,7 @@ func Run() {
 	go cnf.state.watch(ctx, foundAddr, addBundles, addrsAlive)
 	go handleTx(ctx, addBundles, txAlive)
 	if cnf.persistTx {
+		logInfo("Enabling Transaction metadata persistence")
 		go watchFinal(ctx)
 	}
 

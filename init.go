@@ -115,6 +115,7 @@ func init() {
 	ssmsvc := ssm.New(sess)
 
 	if cnf.dbUrl == "" {
+		logInfo("Retrieving Database URL directly from AWS...")
 		var dbUrlParam = fmt.Sprintf("/registration/%s/DATABASE_URL", env_param1)
 		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
 			Name:           aws.String(dbUrlParam),
@@ -127,6 +128,7 @@ func init() {
 	}
 	if cnf.nodeosApiUrl == "" {
 		// /bundles-services-fio-bundles/staging/NODEOS_API_URL
+		logInfo("Retrieving nodeos API URL directly from AWS...")
 		var apiUrlParam = fmt.Sprintf("/bundles-services-fio-bundles/%s/NODEOS_API_URL", env_param2)
 		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
 			Name:           aws.String(apiUrlParam),
@@ -138,6 +140,7 @@ func init() {
 		cnf.nodeosApiUrl = *param.Parameter.Value
 	}
 	if cnf.wif == "" {
+		logInfo("Retrieving Wallet Private Key directly from AWS...")
 		var wifParam = fmt.Sprintf("/registration/%s/WALLET_PRIVATE_KEY", env_param1)
 		param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
 			Name:           aws.String(wifParam),
@@ -163,7 +166,7 @@ func init() {
 	// Validate optional settings
 	if cnf.permission != "" {
 		if b := matcher.Match([]byte(cnf.permission)); !b {
-			log.Fatal("permission should be in format actor@permission, got:", cnf.permission)
+			log.Fatal("permission should be in format actor@permission, got: ", cnf.permission)
 		}
 	}
 

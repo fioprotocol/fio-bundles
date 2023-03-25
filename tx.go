@@ -109,13 +109,15 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 					actor = eos.AccountName(aa)
 					permission = fmt.Sprintf("%s@%s", aa, ap)
 					log.Println("Permission found in db, permission: ", permission)
+				} else {
+					log.Println("WARNING: Retrieval of permission failed, using default permission")
 				}
 			}
 
 			// Validate the permission format
 			if permission != "" {
 				if b := matcher.Match([]byte(permission)); !b {
-					log.Println("permission is not in format actor@permission, got: ", permission)
+					log.Println("WARNING: permission is not in format actor@permission, got: ", permission)
 					continue
 				}
 			}
