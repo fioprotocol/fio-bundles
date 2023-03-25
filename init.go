@@ -84,8 +84,8 @@ func init() {
 	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: state cache filename.")
 	flag.StringVar(&cnf.permission, "p", "", "Optional: permission to use to authorize transaction ex: actor@active.")
 	flag.UintVar(&cnf.minBundleTx, "b", 5, "Optional: minimum bundled transaction threshold at which an address is renewed.")
-	flag.BoolVar(&cnf.uat, "t", false, "Optional: use the UAT registration db/parameters")
-	flag.BoolVar(&cnf.verbose, "v", false, "verbose logging")
+	flag.BoolVar(&cnf.uat, "t", false, "Use when not providing command line args or ENV parameters. Use UAT registration db/parameters")
+	flag.BoolVar(&cnf.verbose, "v", false, "Verbose logging")
 	flag.Parse()
 
 	emptyFatal := func(s, m string) {
