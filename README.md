@@ -32,6 +32,8 @@ This is a standard go project, so can be built with `go build` or `go install`. 
 
 ```
 $ bundles -h
+  -b uint
+    	Optional: minimum bundled transaction threshold at which an address is renewed. (default 5)
   -d string
     	Required: db connection string. Alternate ENV: DB
   -f string
@@ -40,7 +42,10 @@ $ bundles -h
     	Required: private key WIF. Alternate ENV: WIF
   -p string
     	Optional: permission ex: actor@active. Alternate ENV: PERM
+  -t  Optional: persist of transaction metadata to the registration db.
   -u string
     	Required: nodeos API url. Alternate ENV: NODEOS_URL
-  -v	verbose logging
+  -v	Optional: verbose logging.
 ```
+
+See run-bundles.sh for examples of running the fio-bundles application.

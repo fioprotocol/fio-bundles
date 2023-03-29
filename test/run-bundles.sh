@@ -8,6 +8,3 @@
 #export NODEOS_API_URL="https://fiotestnet.blockpane.com"
 #export WIF="5JrWpJtuPyeXuFzhsAWYSyiT2gCZMR1d8ZdMPFhMkrkYE5NTvn7"
 #go run cmd/bundles/main.go -v
-
-# AWS Parameter Store Usage
-go run cmd/bundles/main.go -t -v
