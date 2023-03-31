@@ -14,14 +14,6 @@ import (
 	"github.com/fioprotocol/fio-go"
 )
 
-const (
-	// refreshDuration is the minimum time to wait before re-checking if an address needs more bundles.
-	refreshDuration  = 15 * time.Minute
-	coolDownDuration = time.Hour
-	// minBundle is the threshold at which an address is renewed.
-	minBundle = 5
-)
-
 // Address holds information used in the address cache
 type Address struct {
 	Hash       string
@@ -40,7 +32,7 @@ func NewAddress(dbr *AddressResponse) *Address {
 
 // Stale determines if an address should be checked for remaining bundles
 func (a Address) Stale() bool {
-	if a.Expired == true {
+	if a.Expired {
 		return false
 	}
 	return time.Now().UTC().After(a.Refreshed)
@@ -92,11 +84,11 @@ func (a *Address) CheckRemaining() (needsBundle bool, err error) {
 		return false, expiredErr{}
 	}
 	logInfo(fmt.Sprintf("%s has %d bundled transactions remaining", a.DbResponse.Address+"@"+a.DbResponse.Domain, result[0].Remaining))
-	if result[0].Remaining < minBundle {
+	if result[0].Remaining < uint32(cnf.minBundleTx) {
 		needsBundle = true
 		logInfo(fmt.Sprintf("%s needs bundled transactions", a.DbResponse.Address+"@"+a.DbResponse.Domain))
 	}
-	a.Refreshed = time.Now().UTC().Add(refreshDuration + randMinutes(4))
+	a.Refreshed = time.Now().UTC().Add(cnf.refreshDuration + randMinutes(4))
 	return
 }
 
@@ -146,7 +138,7 @@ func randMinutes(max int) time.Duration {
 
 // watch loops over a ticker, and requests addresses be queried for depletion.
 func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *AddressResponse, heartbeat chan time.Time) {
-	tick := time.NewTicker(30 * time.Second)
+	tick := time.NewTicker(cnf.addressTicker)
 
 	var busy bool
 	checkAddresses := func() {
@@ -176,11 +168,12 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 						continue
 					}
 					log.Println(e)
-					v.Refreshed = time.Now().UTC().Add(refreshDuration + randMinutes(10))
+					v.Refreshed = time.Now().UTC().Add(cnf.refreshDuration + randMinutes(10))
 					continue
 				} else if u {
 					addBundle <- v.DbResponse
-					v.Refreshed = time.Now().UTC().Add(coolDownDuration + randMinutes(60)) // min 1 hour before re-up to slow attacks
+					// min 1 hour before re-up to slow attacks
+					v.Refreshed = time.Now().UTC().Add(cnf.coolDownDuration + randMinutes(60))
 				}
 			}
 		}

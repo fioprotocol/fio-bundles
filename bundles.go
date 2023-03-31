@@ -15,6 +15,8 @@ import (
 // Run is the main entrypoint. It will setup channels, launch routines for handling the event queue, and has
 // a watchdog that will exit if any goroutine appears stalled.
 func Run() {
+	log.Println("Starting the fio-bundles application...")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -28,9 +30,12 @@ func Run() {
 	go watchDb(ctx, foundAddr, dbAlive)
 	go cnf.state.watch(ctx, foundAddr, addBundles, addrsAlive)
 	go handleTx(ctx, addBundles, txAlive)
-	go watchFinal(ctx)
+	if cnf.persistTx {
+		logInfo("Enabling Transaction metadata persistence")
+		go watchFinal(ctx)
+	}
 
-	watchdog := time.NewTicker(5 * time.Minute)
+	watchdog := time.NewTicker(cnf.bundlesTicker)
 	for {
 		select {
 		case <-ctx.Done():
@@ -42,7 +47,7 @@ func Run() {
 		case dbLast = <-dbAlive:
 
 		case <-watchdog.C:
-			expired := time.Now().UTC().Add(-5 * time.Minute)
+			expired := time.Now().UTC().Add(-cnf.bundlesTicker)
 			if expired.After(addrsLast) || expired.After(txLast) || expired.After(dbLast) {
 				log.Println("ERROR: watchdog detected stalled goroutine")
 				cancel()

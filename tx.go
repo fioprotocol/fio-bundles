@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/fioprotocol/fio-go"
-	"github.com/fioprotocol/fio-go/eos"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/fioprotocol/fio-go"
+	"github.com/fioprotocol/fio-go/eos"
 )
 
 const finalized uint32 = 240
@@ -70,7 +71,7 @@ func watchFinal(ctx context.Context) {
 		busy = false
 	}
 
-	tick := time.NewTicker(time.Minute)
+	tick := time.NewTicker(cnf.txFinalTicker)
 	for {
 		select {
 		case <-ctx.Done():
@@ -83,7 +84,7 @@ func watchFinal(ctx context.Context) {
 }
 
 func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat chan time.Time) {
-	tick := time.NewTicker(time.Minute)
+	tick := time.NewTicker(cnf.txTicker)
 
 	for {
 		select {
@@ -95,63 +96,100 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 			heartbeat <- time.Now().UTC()
 
 		case s := <-addBundle:
-			add, err := fio.NewAddBundles(fio.Address(s.Address+"@"+s.Domain), 1, cnf.acc.Actor)
+			var actor = cnf.acc.Actor
+			var permission = cnf.permission
+
+			// If no permission specified then go to the db
+			if permission == "" {
+				var aa, ap string // authorization: actor, permission
+				row := cnf.pg.QueryRow(ctx, "select actor, permission from account_profile where name like '%free%'")
+				err := row.Scan(&aa, &ap)
+				if err == nil {
+					// Override actor with autorization actor
+					actor = eos.AccountName(aa)
+					permission = fmt.Sprintf("%s@%s", aa, ap)
+					log.Println("Permission found in db, permission: ", permission)
+				} else {
+					log.Println("WARNING: Retrieval of permission failed, using default permission")
+				}
+			}
+
+			// Validate the permission format
+			if permission != "" {
+				if b := matcher.Match([]byte(permission)); !b {
+					log.Println("WARNING: permission is not in format actor@permission, got: ", permission)
+					continue
+				}
+			}
+
+			logInfo(fmt.Sprintf("Address to replenish: %s, Wallet Id: %d", s.Address+"@"+s.Domain, s.WalletId))
+			logInfo(fmt.Sprintf("Account to use in tx: %s", actor))
+			logInfo(fmt.Sprintf("Permission to use in tx: %s", permission))
+			add, err := fio.NewAddBundlesWithPerm(fio.Address(s.Address+"@"+s.Domain), 1, actor, permission)
 			if err != nil {
 				log.Println(err)
 				continue
 			}
 
-			event := &EventResult{
-				Addr: s,
-			}
+			// Get info about the chain
 			gi, err := cnf.api.GetInfo()
 			if err != nil {
 				log.Println("could not refresh block height before tx", err)
 			}
 
+			// Set up event for this transaction
+			event := &EventResult{
+				Addr: s,
+			}
+
+			// Send transaction to chain
 			result, err := cnf.api.SignPushActions(add)
+
+			// Log and persist the transaction (if tx persistence is turned on)
 			if err != nil {
 				log.Printf("adding bundle for id %d failed: %s (%+v)", s.AccountId, err.Error(), err.(eos.APIError).ErrorStruct)
-				err = event.createTrx(ctx)
-				if err != nil {
-					log.Println(err)
-					continue
-				}
-				err = event.logTrxResult(ctx, trxError, fmt.Sprintf("addbundles error: %v", err.(eos.APIError).ErrorStruct.Details))
-				if err != nil {
-					log.Println(err)
-					continue
-				}
-				err = event.updateLastTrx(ctx)
-				if err != nil {
-					log.Println(err)
-				}
-				continue
+			} else {
+				log.Printf("tx %s submitted for %+v", result.TransactionID, s)
+				event.TrxId = result.TransactionID
+				event.BlockNum = int(gi.HeadBlockNum) + 1
 			}
-
-			log.Printf("tx %s submitted for %+v", result.TransactionID, s)
-			event.TrxId = result.TransactionID
-			event.BlockNum = int(gi.HeadBlockNum) + 1
-
-			// handle logging to postgres:
-			err = event.createTrx(ctx)
-			if err != nil {
-				log.Println(err)
-				continue
+			if cnf.persistTx {
+				logTransaction(ctx, event, err != nil)
 			}
-			err = event.logTrxResult(ctx, trxNew, "addbundles")
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			err = event.updateLastTrx(ctx)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			erCacheMux.Lock()
-			erCache[event.TrxId] = event
-			erCacheMux.Unlock()
 		}
 	}
+}
+
+func logTransaction(ctx context.Context, event *EventResult, txError bool) (err error) {
+	err = event.createTrx(ctx)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	if txError {
+		err = event.logTrxResult(ctx, trxError, fmt.Sprintf("addbundles error: %v", err.(eos.APIError).ErrorStruct.Details))
+	} else {
+		err = event.logTrxResult(ctx, trxNew, "addbundles")
+	}
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	err = event.updateLastTrx(ctx)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	if txError {
+		return
+	}
+
+	erCacheMux.Lock()
+	erCache[event.TrxId] = event
+	erCacheMux.Unlock()
+
+	return nil
 }

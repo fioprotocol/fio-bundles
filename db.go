@@ -23,6 +23,7 @@ const (
 
 // AddressResponse holds the result of a database query for bundle-eligible addresses
 type AddressResponse struct {
+	WalletId  int    `json:"wallet_id"`
 	AccountId int    `json:"account_id"`
 	OwnerKey  string `json:"owner_key"`
 	Address   string `json:"address"`
@@ -33,7 +34,7 @@ type AddressResponse struct {
 // discovered.
 func watchDb(ctx context.Context, foundAddr chan *AddressResponse, heartbeat chan time.Time) {
 	var busy bool
-	tick := time.NewTicker(time.Minute)
+	tick := time.NewTicker(cnf.dbTicker)
 
 	doUpdate := func() {
 		// prevent a mutex deadlock:
@@ -83,7 +84,7 @@ func watchDb(ctx context.Context, foundAddr chan *AddressResponse, heartbeat cha
 func getEligibleForBundle(ctx context.Context, walletId, minHeight int) ([]*AddressResponse, error) {
 	rows, err := cnf.pg.Query(
 		ctx,
-		"select id, owner_key, address, domain from account"+
+		"select id, owner_key, address, domain, wallet_id from account"+
 			"  where wallet_id=$1 and address is not null and id>$2"+
 			"  order by id limit 500",
 		walletId,
@@ -97,7 +98,7 @@ func getEligibleForBundle(ctx context.Context, walletId, minHeight int) ([]*Addr
 	result := make([]*AddressResponse, 0)
 	for rows.Next() {
 		addr := &AddressResponse{}
-		err = rows.Scan(&addr.AccountId, &addr.OwnerKey, &addr.Address, &addr.Domain)
+		err = rows.Scan(&addr.AccountId, &addr.OwnerKey, &addr.Address, &addr.Domain, &addr.WalletId)
 		if err != nil {
 			logInfo(err)
 			return nil, err
@@ -143,7 +144,7 @@ func updateWallets(ctx context.Context) error {
 		if cnf.state.MinDbAccount[i] == 0 {
 			// use a 1 to forcibly create the map key:
 			cnf.state.MinDbAccount[i] = 1
-			logInfo(fmt.Sprintf("discovered new wallet id: %d", i))
+			logInfo(fmt.Sprintf("discovered new wallet (w/ auto_bundle_add=true); name: %s, id: %d", s, i))
 		}
 	}
 	return nil
@@ -322,5 +323,4 @@ func (er *EventResult) isExpired(ctx context.Context) (expired bool, err error) 
 	}
 
 	return ts.Before(time.Now().UTC()), err
-
 }
