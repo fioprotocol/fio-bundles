@@ -89,7 +89,7 @@ func (a *Address) CheckRemaining() (needsBundle bool, err error) {
 		logInfo(fmt.Sprintf("%s needs bundled transactions", a.DbResponse.Address+"@"+a.DbResponse.Domain))
 	} else {
 		a.Refreshed = time.Now().UTC().Add(cnf.refreshDuration + randMinutes(4))
-		logInfo(fmt.Sprintf("Will recheck at %s.", a.Refreshed.Format(time.UnixDate)))
+		logInfo(fmt.Sprintf("Will recheck at %s", a.Refreshed.Format(time.RFC3339)))
 	}
 	return
 }
@@ -171,14 +171,14 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 					}
 					log.Println(e)
 					v.Refreshed = time.Now().UTC().Add(cnf.refreshDuration + randMinutes(10))
-					logInfo(fmt.Sprintf("Will retry at %s.", v.Refreshed.Format(time.UnixDate)))
+					logInfo(fmt.Sprintf("Will retry at %s", v.Refreshed.Format(time.RFC3339)))
 					continue
 				} else if u {
 					addBundle <- v.DbResponse
 					// min 1 hour before re-up to slow attacks
 					var cooldown time.Duration = cnf.coolDownDuration + randMinutes(60)
 					v.Refreshed = time.Now().UTC().Add(cooldown)
-					logInfo(fmt.Sprintf("Address cooldown invoked. Will not check tx remaining for %s minutes.", cooldown.String()))
+					logInfo(fmt.Sprintf("Address cooldown invoked: timing out for %s minutes", cooldown.String()))
 				}
 			}
 		}
