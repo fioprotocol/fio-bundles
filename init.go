@@ -109,7 +109,10 @@ func init() {
 
 	logInfo(fmt.Sprintf("DB URL:          %s", cnf.dbUrl))
 	logInfo(fmt.Sprintf("NODEOS API URL:  %s", cnf.nodeosApiUrl))
-	logInfo(fmt.Sprintf("WIF:             %s", cnf.wif))
+
+	// Mask out 'most' of the WIF
+	logInfo(fmt.Sprintf("WIF:             %s", maskLeft(cnf.wif)))
+
 	logInfo(fmt.Sprintf("PERM:            %s", cnf.permission))
 	logInfo(fmt.Sprintf("Data File:       %s", cnf.stateFile))
 	logInfo(fmt.Sprintf("Min Bundle Tx:   %d", cnf.minBundleTx))

@@ -94,3 +94,18 @@ func logInfo(v interface{}) {
 		_ = log.Output(2, fmt.Sprintf("%+v", v))
 	}
 }
+
+func maskLeft(s string) string {
+	rs := []rune(s)
+	if len(s) <= 5 {
+		for i := range rs[:] {
+			rs[i] = '*'
+		}
+		return string(rs)
+	}
+
+	for i := range rs[:len(rs)-5] {
+		rs[i] = '*'
+	}
+	return string(rs)
+}
