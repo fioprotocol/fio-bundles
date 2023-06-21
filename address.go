@@ -160,7 +160,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 			busy = false
 		}()
 		ac.mux.RLock()
-		log.Debug("Processing addresses stored in state...")
+		log.Info("Processing addresses stored in state...")
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
 			if v.Stale() {
