@@ -158,6 +158,8 @@ func init() {
 	}
 	log.Debug(fmt.Sprintf("Data File:        %s", cnf.stateFile))
 	log.Debug(fmt.Sprintf("Min Bundle Tx:    %d", cnf.minBundleTx))
+	log.Debug(fmt.Sprintf("Persist Tx:       %t", cnf.persistTx))
+	log.Debug(fmt.Sprintf("Log Level:        %s", cnf.logLevel))
 
 	var e error
 
@@ -187,12 +189,13 @@ func init() {
 	// load the cached address list
 	func() {
 		badState := func(e error) {
-			log.Warn("Could not open state file, starting with empty state.", e.Error())
-			cnf.state = &AddressCache{Addresses: make(map[string]*Address, 0)}
+			log.Warnf("Unable to process state file. %s", e.Error())
 		}
 		f, err := os.Open(cnf.stateFile)
 		if err != nil {
 			badState(err)
+			log.Info("Starting with empty state.")
+			cnf.state = &AddressCache{Addresses: make(map[string]*Address, 0)}
 			return
 		}
 		body, err := io.ReadAll(f)

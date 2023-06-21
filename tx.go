@@ -91,7 +91,7 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("transaction watcher exiting")
+			log.Info("Transaction watcher exiting")
 
 		case <-tick.C:
 			cnf.api.RefreshFees()

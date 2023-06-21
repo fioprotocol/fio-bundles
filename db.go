@@ -40,7 +40,7 @@ func watchDb(ctx context.Context, foundAddr chan *AddressResponse, heartbeat cha
 	doUpdate := func() {
 		// prevent a mutex deadlock:
 		if busy {
-			log.Debug("not querying database, job already running")
+			log.Debug("Database watcher already running; returning")
 			return
 		}
 		busy = true
@@ -145,7 +145,7 @@ func updateWallets(ctx context.Context) error {
 		if cnf.state.MinDbAccount[i] == 0 {
 			// use a 1 to forcibly create the map key:
 			cnf.state.MinDbAccount[i] = 1
-			log.Info(fmt.Sprintf("Discovered new wallet (w/ auto_bundle_add=true); name: %s, id: %d", s, i))
+			log.Info(fmt.Sprintf("Found new wallet (w/ auto_bundle_add=true); name: %s, id: %d", s, i))
 		}
 	}
 	return nil
