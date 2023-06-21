@@ -3,7 +3,6 @@ package bundles
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -57,7 +56,7 @@ func watchDb(ctx context.Context, foundAddr chan *AddressResponse, heartbeat cha
 		for k, v := range cnf.state.MinDbAccount {
 			found, e := getEligibleForBundle(ctx, k, v)
 			if e != nil {
-				log.Error("Unable to query addresses for wallet id", k, e)
+				log.Errorf("Unable to query addresses for wallet id %d. Error: %s", k, e.Error())
 				return
 			}
 			for _, a := range found {
@@ -109,7 +108,7 @@ func getEligibleForBundle(ctx context.Context, walletId, minHeight int) ([]*Addr
 	if len(result) == 0 {
 		return nil, nil
 	}
-	log.Info(fmt.Sprintf("Found %d new addresses for wallet id %d", len(result), walletId))
+	log.Infof("Found %d new addresses for wallet id %d", len(result), walletId)
 
 	// update state with highest ID found to keep queries fast:
 	cnf.state.walletMux.Lock()
@@ -145,7 +144,7 @@ func updateWallets(ctx context.Context) error {
 		if cnf.state.MinDbAccount[i] == 0 {
 			// use a 1 to forcibly create the map key:
 			cnf.state.MinDbAccount[i] = 1
-			log.Info(fmt.Sprintf("Found new wallet (w/ auto_bundle_add=true); name: %s, id: %d", s, i))
+			log.Infof("Found new wallet (w/ auto_bundle_add=true); name: %s, id: %d", s, i)
 		}
 	}
 	return nil

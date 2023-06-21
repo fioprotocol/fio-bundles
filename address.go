@@ -80,23 +80,23 @@ func (a *Address) CheckRemaining() (needsBundle bool, err error) {
 		return false, errors.New("address not found")
 	}
 	if result[0].Expiration != 0 && result[0].Expiration < time.Now().UTC().Unix() {
-		log.Info(fmt.Sprintf("%s is expired, skipping", a.DbResponse.Address+"@"+a.DbResponse.Domain))
+		log.Infof("%s is expired, skipping", a.DbResponse.Address+"@"+a.DbResponse.Domain)
 		a.Expired = true
 		return false, expiredErr{}
 	}
-	log.Debug(fmt.Sprintf("%s has %d bundled transactions remaining", a.DbResponse.Address+"@"+a.DbResponse.Domain, result[0].Remaining))
+	log.Debugf("%s has %d bundled transactions remaining", a.DbResponse.Address+"@"+a.DbResponse.Domain, result[0].Remaining)
 	if result[0].Remaining < uint32(cnf.minBundleTx) {
 		needsBundle = true
-		log.Info(fmt.Sprintf("Address, %s, below min tx threshold! Will refresh", a.DbResponse.Address+"@"+a.DbResponse.Domain))
+		log.Infof("Address, %s, below min tx threshold! Will refresh", a.DbResponse.Address+"@"+a.DbResponse.Domain)
 	} else if result[0].Remaining < uint32(2*cnf.minBundleTx) {
 		a.Refreshed = time.Now().UTC().Add(cnf.refreshDuration + randMinutes(10)) // wait > 60 minutes and < 70 minutes
-		log.Debug(fmt.Sprintf("Address, %s, above min tx threshold. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, a.Refreshed.Format(time.RFC3339)))
+		log.Debugf("Address, %s, above min tx threshold. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, a.Refreshed.Format(time.RFC3339))
 	} else if result[0].Remaining < uint32(4*cnf.minBundleTx) {
 		a.Refreshed = time.Now().UTC().Add(cnf.refreshDuration*4 + randMinutes(30)) // wait > 4 hours and < 4.5 hours
-		log.Debug(fmt.Sprintf("Address, %s, above min tx threshold. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, a.Refreshed.Format(time.RFC3339)))
+		log.Debugf("Address, %s, above min tx threshold. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, a.Refreshed.Format(time.RFC3339))
 	} else {
 		a.Refreshed = time.Now().UTC().Add(cnf.refreshDuration*12 + randMinutes(60)) // wait > 12 hours and < 13 hours
-		log.Debug(fmt.Sprintf("Address, %s, above min tx threshold. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, a.Refreshed.Format(time.RFC3339)))
+		log.Debugf("Address, %s, above min tx threshold. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, a.Refreshed.Format(time.RFC3339))
 	}
 	return
 }
@@ -176,7 +176,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 						log.Debug(k + " - purging non-existent (on chain) address")
 						continue
 					}
-					log.Warn("An error occured checking address for remaining bundled transactions. Error: ", e)
+					log.Warnf("An error occured checking addresses for remaining bundled transactions. Error: %s", e.Error())
 					v.Refreshed = time.Now().UTC().Add(randMinutes(10))
 					log.Debug(fmt.Sprintf("Will retry at %s", v.Refreshed.Format(time.RFC3339)))
 					continue
@@ -188,7 +188,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 					// in cnf.refreshDuration + randMinutes(10). If not, the Refreshed attribute will be updated again
 					var cooldown time.Duration = cnf.refreshDuration + randMinutes(10)
 					v.Refreshed = time.Now().UTC().Add(cooldown)
-					log.Info(fmt.Sprintf("Address bundled tx refreshed. Setting initial cooldown period of %s", cooldown.String()))
+					log.Infof("Address bundled tx refreshed. Setting initial cooldown period of %s", cooldown.String())
 				}
 			}
 		}

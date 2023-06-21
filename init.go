@@ -145,21 +145,21 @@ func init() {
 	// Validate optional settings
 	if cnf.permission != "" {
 		if b := matcher.Match([]byte(cnf.permission)); !b {
-			log.Fatal("permission should be in format actor@permission, got: ", cnf.permission)
+			log.Fatalf("permission should be in format actor@permission, got: %s", cnf.permission)
 		}
 	}
 
-	log.Info(fmt.Sprintf("DB URL:           %s", cnf.dbUrl))
-	log.Info(fmt.Sprintf("NODEOS API URL:   %s", cnf.nodeosApiUrl))
+	log.Infof("DB URL:           %s", cnf.dbUrl)
+	log.Infof("NODEOS API URL:   %s", cnf.nodeosApiUrl)
 	// Mask out 'most' of the WIF
-	log.Info(fmt.Sprintf("WIF:              %s", maskLeft(cnf.wif)))
+	log.Infof("WIF:              %s", maskLeft(cnf.wif))
 	if cnf.permission != "" {
-		log.Info(fmt.Sprintf("PERM:             %s", cnf.permission))
+		log.Infof("PERM:             %s", cnf.permission)
 	}
-	log.Debug(fmt.Sprintf("Data File:        %s", cnf.stateFile))
-	log.Debug(fmt.Sprintf("Min Bundle Tx:    %d", cnf.minBundleTx))
-	log.Debug(fmt.Sprintf("Persist Tx:       %t", cnf.persistTx))
-	log.Debug(fmt.Sprintf("Log Level:        %s", cnf.logLevel))
+	log.Debugf("Data File:        %s", cnf.stateFile)
+	log.Debugf("Min Bundle Tx:    %d", cnf.minBundleTx)
+	log.Debugf("Persist Tx:       %t", cnf.persistTx)
+	log.Debugf("Log Level:        %s", cnf.logLevel)
 
 	var e error
 

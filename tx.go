@@ -36,7 +36,7 @@ func watchFinal(ctx context.Context) {
 				continue
 			}
 			if expired {
-				log.Debug("Removing expired transaction from watch queue: " + v.TrxId)
+				log.Debugf("Removing expired transaction from watch queue: %s", v.TrxId)
 				/* Note: It's not necessary to update the database, the app will handle it on its own. */
 				delete(erCache, k)
 				continue
@@ -55,7 +55,7 @@ func watchFinal(ctx context.Context) {
 				continue
 			}
 			if response.BlockNum >= uint32(v.BlockNum)+finalized {
-				log.Debug(fmt.Sprintf("Marking tx %s as successful in database", v.TrxId))
+				log.Debugf("Marking tx %s as successful in database", v.TrxId)
 				err = v.logTrxResult(ctx, trxOk, "addbundles transaction finalized")
 				if err != nil {
 					logIt(err)
@@ -113,20 +113,20 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 					// Override actor with autorization actor
 					actor = eos.AccountName(aa)
 					permission = fmt.Sprintf("%s@%s", aa, ap)
-					log.Info("Permission found in db, permission: ", permission)
+					log.Infof("Permission found in db, permission: %s", permission)
 
 					// Validate the permission format
 					if b := matcher.Match([]byte(permission)); !b {
-						log.Error(fmt.Sprintf("Permission is not in format actor@permission, permission: %s", permission))
-						log.Info("Using default permission: ", cnf.permission)
+						log.Errorf("Permission is not in format actor@permission, permission: %s", permission)
+						log.Infof("Using default permission: %s", cnf.permission)
 						permission = cnf.permission
 					}
 				}
 			}
 
-			log.Info(fmt.Sprintf("Address to replenish: %s, Wallet Id: %d", s.Address+"@"+s.Domain, s.WalletId))
-			log.Info(fmt.Sprintf("Account to use in tx: %s", actor))
-			log.Info(fmt.Sprintf("Permission to use in tx: %s", permission))
+			log.Infof("Address to replenish: %s, Wallet Id: %d", s.Address+"@"+s.Domain, s.WalletId)
+			log.Infof("Account to use in tx: %s", actor)
+			log.Infof("Permission to use in tx: %s", permission)
 			add, err := fio.NewAddBundlesWithPerm(fio.Address(s.Address+"@"+s.Domain), 1, actor, permission)
 			if err != nil {
 				logIt(err)
