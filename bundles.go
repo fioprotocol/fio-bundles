@@ -3,11 +3,11 @@ package bundles
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"log"
 	"os"
 	"syscall"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/fioprotocol/fio-go/eos"
 )
@@ -31,7 +31,7 @@ func Run() {
 	go cnf.state.watch(ctx, foundAddr, addBundles, addrsAlive)
 	go handleTx(ctx, addBundles, txAlive)
 	if cnf.persistTx {
-		logInfo("Enabling Transaction metadata persistence")
+		log.Info("Enabling Transaction metadata persistence")
 		go watchFinal(ctx)
 	}
 
@@ -78,33 +78,38 @@ func save(sig os.Signal) {
 	log.Fatal("exiting")
 }
 
-// logInfo prints detailed log information.
-func logInfo(v interface{}) {
-	if !cnf.verbose {
-		return
-	}
+// logIt prints detailed error log information.
+// Note: no way in logrus, slog, etc to skip frame in callstack
+func logIt(v interface{}) {
+	//if !cnf.verbose {
+	//	return
+	//}
 	switch v.(type) {
 	case eos.APIError:
-		_ = log.Output(2, fmt.Sprintf("%s: %+v", v.(eos.APIError).Error(), v.(eos.APIError).ErrorStruct))
+		//_ = log.Output(fmt.Sprintf("%s: %+v", v.(eos.APIError).Error(), v.(eos.APIError).ErrorStruct))
+		log.Errorf("%s: %+v", v.(eos.APIError).Error(), v.(eos.APIError).ErrorStruct)
 	case error:
-		_ = log.Output(2, v.(error).Error())
+		//_ = log.Output(v.(error).Error())
+		log.Error(v.(error).Error())
 	case string:
-		_ = log.Output(2, v.(string))
+		//_ = log.Output(v.(string))
+		log.Error(v.(string))
 	default:
-		_ = log.Output(2, fmt.Sprintf("%+v", v))
+		//_ = log.Output(fmt.Sprintf("%+v", v))
+		log.Errorf("%+v", v)
 	}
 }
 
 func maskLeft(s string) string {
 	rs := []rune(s)
-	if len(s) <= 5 {
+	if len(s) <= 8 {
 		for i := range rs[:] {
 			rs[i] = '*'
 		}
 		return string(rs)
 	}
 
-	for i := range rs[:len(rs)-5] {
+	for i := range rs[:len(rs)-8] {
 		rs[i] = '*'
 	}
 	return string(rs)

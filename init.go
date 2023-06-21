@@ -6,12 +6,14 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/signal"
 	"regexp"
+	"strings"
 	"syscall"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/fioprotocol/fio-go"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -25,8 +27,7 @@ type config struct {
 	txTicker      time.Duration // transaction timeout - add bundle check
 	txFinalTicker time.Duration // transaction finalization timeout - tx cleanup
 
-	refreshDuration  time.Duration // minimum time to wait before re-checking if an address needs more bundles.
-	coolDownDuration time.Duration // minimum time to wait to after an address is bundled
+	refreshDuration time.Duration // minimum time to wait before re-checking if an address needs more bundles.
 
 	nodeosApiUrl string
 	wif          string
@@ -40,7 +41,9 @@ type config struct {
 	state       *AddressCache
 	minBundleTx uint
 	persistTx   bool
-	verbose     bool
+
+	logLevel string // logrus logging level; must be one of Trace, Debug, Info, Warn, Error, Fatal, Panic.
+	verbose  bool
 }
 
 // cnf is a _package-level_ variable holding a config
@@ -54,29 +57,67 @@ var matcher = regexp.MustCompile(`^\w+@\w+$`)
 
 // init parses flags or checks environment variables, it updates the package-level 'cnf' struct.
 func init() {
-	// Set static parameters
-	cnf.addressTicker = 30 * time.Second
-	cnf.bundlesTicker = 5 * time.Minute
-	cnf.dbTicker = time.Minute
+	// Init static parameters
+	cnf.addressTicker = 5 * time.Minute
+	cnf.bundlesTicker = 20 * time.Minute
+	cnf.dbTicker = 30 * time.Minute
 	cnf.txTicker = time.Minute
 	cnf.txFinalTicker = time.Minute
 
-	cnf.refreshDuration = 15 * time.Minute
-	cnf.coolDownDuration = time.Hour
+	cnf.refreshDuration = 1 * time.Hour
 
 	cnf.persistTx = false
 
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
+	// Parse command-line args if any
 	flag.StringVar(&cnf.dbUrl, "d", os.Getenv("DB"), "Required: db connection string. Alternates; ENV ('DB')")
-	flag.StringVar(&cnf.nodeosApiUrl, "u", os.Getenv("NODEOS_API_URL"), "Required: nodeos API url. Alternates; ENV ('NODEOS_API_URL')")
+	flag.StringVar(&cnf.nodeosApiUrl, "u", os.Getenv("NODEOS_API_URL"), "Required: nodeos API URL. Alternates; ENV ('NODEOS_API_URL')")
 	flag.StringVar(&cnf.wif, "k", os.Getenv("WIF"), "Required: private key WIF. Alternates; ENV ('WIF')")
 	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: state cache filename.")
 	flag.StringVar(&cnf.permission, "p", "", "Optional: permission to use to authorize transaction ex: actor@active.")
-	flag.UintVar(&cnf.minBundleTx, "b", 5, "Optional: minimum bundled transaction threshold at which an address is renewed.")
-	flag.BoolVar(&cnf.persistTx, "t", false, "Optional: persist of transaction metadata to the registration db.")
-	flag.BoolVar(&cnf.verbose, "v", false, "Optional: verbose logging.")
+	flag.UintVar(&cnf.minBundleTx, "b", 10, "Optional: minimum bundled transaction threshold at which an address is renewed. Default = 10.")
+	flag.BoolVar(&cnf.persistTx, "t", false, "\nOptional: persist of transaction metadata to the registration db.")
+	flag.StringVar(&cnf.logLevel, "l", "Info", "Optional: logrus log level. Default = 'Info'. Case-insensitive match else Default.")
+	flag.BoolVar(&cnf.verbose, "v", false, "\nOptional: verbose logging.")
 	flag.Parse()
+
+	// Init logger
+	//log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	log.SetReportCaller(false)
+
+	// Json formatting
+	//log.SetFormatter(&log.JSONFormatter{})
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02 15:04:05",
+	})
+
+	// log level
+	switch strings.ToLower(cnf.logLevel) {
+	case "panic":
+		log.SetLevel(log.PanicLevel)
+		break
+	case "fatal":
+		log.SetLevel(log.FatalLevel)
+		break
+	case "error":
+		log.SetLevel(log.ErrorLevel)
+		break
+	case "warn":
+		log.SetLevel(log.WarnLevel)
+		break
+	case "info":
+		log.SetLevel(log.InfoLevel)
+		break
+	case "debug":
+		log.SetLevel(log.DebugLevel)
+		break
+	case "trace":
+		log.SetLevel(log.TraceLevel)
+		break
+	default:
+		log.SetLevel(log.ErrorLevel)
+	}
 
 	emptyFatal := func(s, m string) {
 		if s == "" {
@@ -87,6 +128,9 @@ func init() {
 	}
 
 	// Validate required settings
+	if cnf.dbUrl == "" && cnf.nodeosApiUrl == "" && cnf.wif == "" {
+		emptyFatal(cnf.dbUrl, "Required parameters not provided; DB URL, Nodeos API URL, WIF!")
+	}
 	if cnf.dbUrl == "" {
 		emptyFatal(cnf.dbUrl, "No database connection information specified, provide '-d' or set 'DB'")
 	}
@@ -97,6 +141,9 @@ func init() {
 		emptyFatal(cnf.wif, "No private key present, provide '-k' or set 'WIF'")
 	}
 
+	// Validate state file exists (either default or file explicitly set on command line)
+	emptyFatal(cnf.stateFile, "State cache file cannot be empty")
+
 	// Validate optional settings
 	if cnf.permission != "" {
 		if b := matcher.Match([]byte(cnf.permission)); !b {
@@ -104,19 +151,16 @@ func init() {
 		}
 	}
 
-	// Validate state file exists (either default or file explicitly set on command line)
-	emptyFatal(cnf.stateFile, "state cache file cannot be empty")
-
-	logInfo(fmt.Sprintf("DB URL:          %s", cnf.dbUrl))
-	logInfo(fmt.Sprintf("NODEOS API URL:  %s", cnf.nodeosApiUrl))
-
+	log.Info(fmt.Sprintf("DB URL:           %s", cnf.dbUrl))
+	log.Info(fmt.Sprintf("NODEOS API URL:   %s", cnf.nodeosApiUrl))
 	// Mask out 'most' of the WIF
-	logInfo(fmt.Sprintf("WIF:             %s", maskLeft(cnf.wif)))
-
-	logInfo(fmt.Sprintf("PERM:            %s", cnf.permission))
-	logInfo(fmt.Sprintf("Data File:       %s", cnf.stateFile))
-	logInfo(fmt.Sprintf("Min Bundle Tx:   %d", cnf.minBundleTx))
-	logInfo(fmt.Sprintf("Verbose Logging: %t", cnf.verbose))
+	log.Info(fmt.Sprintf("WIF:              %s", maskLeft(cnf.wif)))
+	if cnf.permission != "" {
+		log.Info(fmt.Sprintf("PERM:             %s", cnf.permission))
+	}
+	log.Debug(fmt.Sprintf("Data File:        %s", cnf.stateFile))
+	log.Debug(fmt.Sprintf("Min Bundle Tx:    %d", cnf.minBundleTx))
+	log.Debug(fmt.Sprintf("Verbose Logging:  %t", cnf.verbose))
 
 	var e error
 
@@ -138,7 +182,7 @@ func init() {
 	if e != nil {
 		log.Fatal(e)
 	}
-	logInfo(fmt.Sprintf("NewWifConnect Account: Actor = %s", cnf.acc.Actor))
+	log.Info(fmt.Sprintf("NewWifConnect Account: Actor = %s", cnf.acc.Actor))
 
 	// transactions to monitor for finalization
 	erCache = make(map[string]*EventResult)
@@ -146,7 +190,7 @@ func init() {
 	// load the cached address list
 	func() {
 		badState := func(e error) {
-			log.Println("could not open state file, starting with empty state.", e.Error())
+			log.Warn("Could not open state file, starting with empty state.", e.Error())
 			cnf.state = &AddressCache{Addresses: make(map[string]*Address, 0)}
 		}
 		f, err := os.Open(cnf.stateFile)

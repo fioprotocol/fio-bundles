@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/fioprotocol/fio-go/eos"
 	"github.com/jackc/pgx/v4"
@@ -39,7 +40,7 @@ func watchDb(ctx context.Context, foundAddr chan *AddressResponse, heartbeat cha
 	doUpdate := func() {
 		// prevent a mutex deadlock:
 		if busy {
-			logInfo("not querying database, job already running")
+			log.Debug("not querying database, job already running")
 			return
 		}
 		busy = true
@@ -47,16 +48,16 @@ func watchDb(ctx context.Context, foundAddr chan *AddressResponse, heartbeat cha
 			busy = false
 		}()
 
-		logInfo("updating wallets and addresses from registration database")
+		log.Info("Updating wallets and addresses from registration database")
 		err := updateWallets(ctx)
 		if err != nil {
-			log.Println("ERROR: could not update wallets from database, aborting address updates")
+			log.Error("Unable to update wallets from database, aborting address updates")
 			return
 		}
 		for k, v := range cnf.state.MinDbAccount {
 			found, e := getEligibleForBundle(ctx, k, v)
 			if e != nil {
-				log.Println("ERROR: could not query addresses for wallet id", k, e)
+				log.Error("Unable to query addresses for wallet id", k, e)
 				return
 			}
 			for _, a := range found {
@@ -91,7 +92,7 @@ func getEligibleForBundle(ctx context.Context, walletId, minHeight int) ([]*Addr
 		minHeight,
 	)
 	if err != nil {
-		logInfo(err)
+		logIt(err)
 		return nil, err
 	}
 
@@ -100,7 +101,7 @@ func getEligibleForBundle(ctx context.Context, walletId, minHeight int) ([]*Addr
 		addr := &AddressResponse{}
 		err = rows.Scan(&addr.AccountId, &addr.OwnerKey, &addr.Address, &addr.Domain, &addr.WalletId)
 		if err != nil {
-			logInfo(err)
+			logIt(err)
 			return nil, err
 		}
 		result = append(result, addr)
@@ -108,7 +109,7 @@ func getEligibleForBundle(ctx context.Context, walletId, minHeight int) ([]*Addr
 	if len(result) == 0 {
 		return nil, nil
 	}
-	logInfo(fmt.Sprintf("found %d new addresses for wallet id %d", len(result), walletId))
+	log.Info(fmt.Sprintf("Found %d new addresses for wallet id %d", len(result), walletId))
 
 	// update state with highest ID found to keep queries fast:
 	cnf.state.walletMux.Lock()
@@ -128,7 +129,7 @@ func updateWallets(ctx context.Context) error {
 
 	rows, err := cnf.pg.Query(ctx, "select id, name from wallet where auto_bundles_add = true")
 	if err != nil {
-		logInfo(err)
+		logIt(err)
 		return err
 	}
 	cnf.state.walletMux.Lock()
@@ -138,13 +139,13 @@ func updateWallets(ctx context.Context) error {
 		var s string
 		err = rows.Scan(&i, &s)
 		if err != nil {
-			logInfo(err)
+			logIt(err)
 			return err
 		}
 		if cnf.state.MinDbAccount[i] == 0 {
 			// use a 1 to forcibly create the map key:
 			cnf.state.MinDbAccount[i] = 1
-			logInfo(fmt.Sprintf("discovered new wallet (w/ auto_bundle_add=true); name: %s, id: %d", s, i))
+			log.Info(fmt.Sprintf("Discovered new wallet (w/ auto_bundle_add=true); name: %s, id: %d", s, i))
 		}
 	}
 	return nil
@@ -167,7 +168,7 @@ func beginTx(ctx context.Context) (timeout context.Context, cancel context.Cance
 	tx, err = cnf.pg.Begin(timeout)
 	if err != nil {
 		cancel()
-		logInfo(err)
+		logIt(err)
 		return nil, nil, nil, err
 	}
 	return
@@ -193,25 +194,25 @@ func (er *EventResult) createTrx(ctx context.Context) (err error) {
 		er.Addr.AccountId,
 	)
 	if err != nil {
-		logInfo(err)
+		logIt(err)
 		return err
 	}
 
 	err = tx.Commit(timeout)
 	if err != nil {
-		logInfo(err)
+		logIt(err)
 		return err
 	}
 	row := cnf.pg.QueryRow(ctx, "select id from blockchain_trx where trx_id=$1 order by id desc", er.TrxId)
 	var i int
 	err = row.Scan(&i)
 	if err != nil {
-		logInfo(err)
+		logIt(err)
 		return err
 	}
 	if i == 0 {
 		err = errors.New("could not locate log row in blockchain_trx table")
-		logInfo(err)
+		logIt(err)
 		return
 	}
 	er.Id = i
@@ -223,7 +224,7 @@ func (er *EventResult) createTrx(ctx context.Context) (err error) {
 func (er *EventResult) updateLastTrx(ctx context.Context) (err error) {
 	if er.LastTrxEvent == 0 {
 		err = errors.New("refusing to update last event with nonexistent transaction result")
-		logInfo(err)
+		logIt(err)
 		return
 	}
 
@@ -240,13 +241,13 @@ func (er *EventResult) updateLastTrx(ctx context.Context) (err error) {
 		er.Id,
 	)
 	if err != nil {
-		logInfo(fmt.Sprintf("update blockchain_trx set last_trx_event=%v where id=%v", er.LastTrxEvent, er.Id))
-		logInfo(err)
+		logIt(err)
+		log.Errorf("Error executing 'update blockchain_trx set last_trx_event=%v where id=%v'", er.LastTrxEvent, er.Id)
 		return
 	}
 	err = tx.Commit(timeout)
 	if err != nil {
-		logInfo(err)
+		logIt(err)
 	}
 
 	return
@@ -257,7 +258,7 @@ func (er *EventResult) updateLastTrx(ctx context.Context) (err error) {
 func (er *EventResult) logTrxResult(ctx context.Context, status trxStatus, note string) (err error) {
 	if er.Id == 0 {
 		err = errors.New("cannot update non-existent blockchain_trx entry")
-		logInfo(err)
+		logIt(err)
 		return
 	}
 
@@ -276,12 +277,12 @@ func (er *EventResult) logTrxResult(ctx context.Context, status trxStatus, note 
 		er.Id,
 	)
 	if err != nil {
-		logInfo(err)
+		logIt(err)
 		return
 	}
 	err = tx.Commit(timeout)
 	if err != nil {
-		logInfo(err)
+		logIt(err)
 		return
 	}
 
@@ -289,12 +290,12 @@ func (er *EventResult) logTrxResult(ctx context.Context, status trxStatus, note 
 	var i int
 	err = row.Scan(&i)
 	if err != nil {
-		logInfo(err)
+		logIt(err)
 		return err
 	}
 	if i == 0 {
-		err = errors.New("could not locate log row in blockchain_trx table")
-		logInfo(err)
+		err = errors.New("Unable to locate transaction event in blockchain_trx table")
+		logIt(err)
 		return
 	}
 	er.LastTrxEvent = i
@@ -304,21 +305,21 @@ func (er *EventResult) logTrxResult(ctx context.Context, status trxStatus, note 
 
 func (er *EventResult) isExpired(ctx context.Context) (expired bool, err error) {
 	if er.Id == 0 {
-		err = errors.New("cannot check nonexistent transaction for expiry")
-		logInfo(err)
+		err = errors.New("Cannot check nonexistent transaction for expiry")
+		logIt(err)
 		return
 	}
 	rows := cnf.pg.QueryRow(ctx, "select expiration from blockchain_trx where trx_id=$1 order by expiration desc", er.TrxId)
 	var ts time.Time
 	err = rows.Scan(&ts)
 	if err != nil {
-		logInfo(err)
+		logIt(err)
 		return
 	}
 
 	if ts.Unix() == 0 {
 		err = errors.New("could not determine timeout in blockchain_trx table")
-		logInfo(err)
+		logIt(err)
 		return
 	}
 

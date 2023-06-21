@@ -12,17 +12,24 @@ Logs are added to the registration database upon completion of a refresh. The UI
 
 ## Configuration
 
-This is intended to be run as a container, e.g. in TestNet or MainNet, but may be run from the command line, for debugging/test purposes. The parameters below are required and will be pulled from the AWS parameter store. These parameters may be passed in on the commnad line and will take precedence.
+This is intended to be run in a docker container but may be run from the command line, for debugging/test purposes. The parameters below are required and, by default, will be pulled from the AWS parameter store. Parameters may be passed in on the command line as well. In this case, command line parameters take precedence.
 
-* `NODEOS_API_URL` - the URL of the FIO API node to use
 * `DB` - the database connection string. Expected format is `postgres://user:password@host:port/database`
+* `NODEOS_API_URL` - the URL of the FIO API node to use
 * `WIF` - the private key to use for signing transactions
-
-The parameter PERM may specified on the command line, pulled from the registration database or be set to the account associated to the WIF along with the default permission of "active"for delegated permission use cases.
-
 * `PERM` - the permission to use for signing transactions, e.g. `fio.address@active` this option is only needed if the account is using a delegated permission.
 
-In addition several other parameters, i.e., timers, transaction persistance, add bundle transaction refresh/cool down durations, etc. that are set directly on the config during initialization.
+The `PERM` parameter may specified on the command line, pulled from the registration database or be set to the account associated to the WIF for delegated permission use cases.
+
+In addition other configuration parameters, i.e., timers, address refresh/cool down durations, etc. are set directly in the config during initialization.
+
+Configuration items of note are;
+* The DB is queried for new wallets, and new addresses for each wallet (max of 500/wallet) every 30 minutes
+* Address processing occurs every 5 minutes and once an individual address is processed, it is reprocessed based on its remaining bundled transactions;
+    if < 10 the address is refreshed with new bundled transactions
+    if < 20 the address is checked again 1 hour later
+    if < 40 the address is checked 4 hours later
+    if > 40 the address is checked 12 hours later
 
 ## Building
 

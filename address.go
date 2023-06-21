@@ -7,9 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/fioprotocol/fio-go"
 )
@@ -79,17 +80,23 @@ func (a *Address) CheckRemaining() (needsBundle bool, err error) {
 		return false, errors.New("address not found")
 	}
 	if result[0].Expiration != 0 && result[0].Expiration < time.Now().UTC().Unix() {
-		logInfo(fmt.Sprintf("%s is expired, skipping", a.DbResponse.Address+"@"+a.DbResponse.Domain))
+		log.Info(fmt.Sprintf("%s is expired, skipping", a.DbResponse.Address+"@"+a.DbResponse.Domain))
 		a.Expired = true
 		return false, expiredErr{}
 	}
-	logInfo(fmt.Sprintf("%s has %d bundled transactions remaining", a.DbResponse.Address+"@"+a.DbResponse.Domain, result[0].Remaining))
+	log.Debug(fmt.Sprintf("%s has %d bundled transactions remaining", a.DbResponse.Address+"@"+a.DbResponse.Domain, result[0].Remaining))
 	if result[0].Remaining < uint32(cnf.minBundleTx) {
 		needsBundle = true
-		logInfo(fmt.Sprintf("%s needs bundled transactions", a.DbResponse.Address+"@"+a.DbResponse.Domain))
+		log.Info(fmt.Sprintf("Address, %s, below min tx threshold! Will refresh", a.DbResponse.Address+"@"+a.DbResponse.Domain))
+	} else if result[0].Remaining < uint32(2*cnf.minBundleTx) {
+		a.Refreshed = time.Now().UTC().Add(cnf.refreshDuration + randMinutes(10)) // wait > 60 minutes and < 70 minutes
+		log.Debug(fmt.Sprintf("Address, %s, above min tx threshold. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, a.Refreshed.Format(time.RFC3339)))
+	} else if result[0].Remaining < uint32(4*cnf.minBundleTx) {
+		a.Refreshed = time.Now().UTC().Add(cnf.refreshDuration*4 + randMinutes(30)) // wait > 4 hours and < 4.5 hours
+		log.Debug(fmt.Sprintf("Address, %s, above min tx threshold. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, a.Refreshed.Format(time.RFC3339)))
 	} else {
-		a.Refreshed = time.Now().UTC().Add(cnf.refreshDuration + randMinutes(4))
-		logInfo(fmt.Sprintf("Will recheck at %s", a.Refreshed.Format(time.RFC3339)))
+		a.Refreshed = time.Now().UTC().Add(cnf.refreshDuration*12 + randMinutes(60)) // wait > 12 hours and < 13 hours
+		log.Debug(fmt.Sprintf("Address, %s, above min tx threshold. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, a.Refreshed.Format(time.RFC3339)))
 	}
 	return
 }
@@ -110,23 +117,23 @@ func (ac *AddressCache) add(addr *AddressResponse) {
 	a := addr.Address + "@" + addr.Domain
 	if ac.Addresses[a] == nil {
 		if !fio.Address(a).Valid() {
-			logInfo(a + " is not a valid formatted address")
+			log.Warn(a + " is not a valid formatted address")
 			return
 		}
 		ac.Addresses[a] = NewAddress(addr)
-		logInfo("added: " + a)
+		log.Debug("Added address to cache: " + a)
 		return
 	}
 }
 
 // delete removes an address from the cache
 func (ac *AddressCache) delete(s string) {
-	logInfo("not watching bundles for: " + s)
+	log.Debug("Deleting address from cache, address: " + s)
 	ac.mux.Lock()
 	defer ac.mux.Unlock()
 
 	if ac.Addresses[s] == nil {
-		logInfo("address was nil! not deleting")
+		log.Warn("Address is nil! Unable to delete")
 		return
 	}
 	delete(ac.Addresses, s)
@@ -145,7 +152,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 	var busy bool
 	checkAddresses := func() {
 		if busy {
-			logInfo("not checking addresses, job already running")
+			log.Debug("Address watcher already running; returning")
 			return
 		}
 		busy = true
@@ -153,7 +160,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 			busy = false
 		}()
 		ac.mux.RLock()
-		logInfo("processing addresses stored in state")
+		log.Debug("Processing addresses stored in state...")
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
 			if v.Stale() {
@@ -166,19 +173,22 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 					// if not found, it has been purged from state.
 					if e.Error() == "address not found" {
 						expired = append(expired, k)
-						logInfo(k + " - purging non-existent address")
+						log.Debug(k + " - purging non-existent (on chain) address")
 						continue
 					}
-					log.Println(e)
-					v.Refreshed = time.Now().UTC().Add(cnf.refreshDuration + randMinutes(10))
-					logInfo(fmt.Sprintf("Will retry at %s", v.Refreshed.Format(time.RFC3339)))
+					log.Warn("An error occured checking address for remaining bundled transactions. Error: ", e)
+					v.Refreshed = time.Now().UTC().Add(randMinutes(10))
+					log.Debug(fmt.Sprintf("Will retry at %s", v.Refreshed.Format(time.RFC3339)))
 					continue
 				} else if u {
 					addBundle <- v.DbResponse
-					// min 1 hour before re-up to slow attacks
-					var cooldown time.Duration = cnf.coolDownDuration + randMinutes(60)
+
+					// Set an initial cooldown period to slow attacks
+					// Note that it is possible the addBundles tx failed. In this case, the tx will be attempted again
+					// in cnf.refreshDuration + randMinutes(10). If not, the Refreshed attribute will be updated again
+					var cooldown time.Duration = cnf.refreshDuration + randMinutes(10)
 					v.Refreshed = time.Now().UTC().Add(cooldown)
-					logInfo(fmt.Sprintf("Address cooldown invoked: timing out for %s minutes", cooldown.String()))
+					log.Info(fmt.Sprintf("Address bundled tx refreshed. Setting initial cooldown period of %s", cooldown.String()))
 				}
 			}
 		}
@@ -192,7 +202,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("address cache watcher exiting")
+			log.Info("Address watcher exiting")
 			return
 
 		case <-tick.C:
