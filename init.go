@@ -43,7 +43,6 @@ type config struct {
 	persistTx   bool
 
 	logLevel string // logrus logging level; must be one of Trace, Debug, Info, Warn, Error, Fatal, Panic.
-	verbose  bool
 }
 
 // cnf is a _package-level_ variable holding a config
@@ -77,7 +76,6 @@ func init() {
 	flag.UintVar(&cnf.minBundleTx, "b", 10, "Optional: minimum bundled transaction threshold at which an address is renewed. Default = 10.")
 	flag.BoolVar(&cnf.persistTx, "t", false, "\nOptional: persist of transaction metadata to the registration db.")
 	flag.StringVar(&cnf.logLevel, "l", "Info", "Optional: logrus log level. Default = 'Info'. Case-insensitive match else Default.")
-	flag.BoolVar(&cnf.verbose, "v", false, "\nOptional: verbose logging.")
 	flag.Parse()
 
 	// Init logger
@@ -160,7 +158,6 @@ func init() {
 	}
 	log.Debug(fmt.Sprintf("Data File:        %s", cnf.stateFile))
 	log.Debug(fmt.Sprintf("Min Bundle Tx:    %d", cnf.minBundleTx))
-	log.Debug(fmt.Sprintf("Verbose Logging:  %t", cnf.verbose))
 
 	var e error
 
