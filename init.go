@@ -27,7 +27,7 @@ type config struct {
 	txTicker      time.Duration // transaction timeout - add bundle check
 	txFinalTicker time.Duration // transaction finalization timeout - tx cleanup
 
-	refreshDuration time.Duration // minimum time to wait before re-checking if an address needs more bundles.
+	refreshTimeout time.Duration // minimum time to wait before re-checking if an address needs more bundles.
 
 	nodeosApiUrl string
 	wif          string
@@ -63,7 +63,7 @@ func init() {
 	cnf.txTicker = time.Minute
 	cnf.txFinalTicker = time.Minute
 
-	cnf.refreshDuration = 1 * time.Hour
+	cnf.refreshTimeout = 1 * time.Hour
 
 	cnf.persistTx = false
 
