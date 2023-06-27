@@ -35,12 +35,16 @@ type config struct {
 	stateFile    string
 	permission   string // expect account@permission
 
-	api         *fio.API
-	acc         *fio.Account
-	pg          *pgxpool.Pool
-	state       *AddressCache
-	minBundleTx uint
-	persistTx   bool
+	api   *fio.API
+	acc   *fio.Account
+	pg    *pgxpool.Pool
+	state *AddressCache
+
+	minBundleTx   uint
+	minBundleTx2x uint
+	minBundleTx4x uint
+	minBundleTx8x uint
+	persistTx     bool
 
 	logLevel string // logrus logging level; must be one of Trace, Debug, Info, Warn, Error, Fatal, Panic.
 }
@@ -65,15 +69,13 @@ func init() {
 
 	cnf.refreshTimeout = 1 * time.Hour
 
-	cnf.persistTx = false
-
 	// Parse command-line args if any
 	flag.StringVar(&cnf.dbUrl, "d", os.Getenv("DB"), "Required: db connection string. Alternates; ENV ('DB')")
 	flag.StringVar(&cnf.nodeosApiUrl, "u", os.Getenv("NODEOS_API_URL"), "Required: nodeos API URL. Alternates; ENV ('NODEOS_API_URL')")
 	flag.StringVar(&cnf.wif, "k", os.Getenv("WIF"), "Required: private key WIF. Alternates; ENV ('WIF')")
 	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: state cache filename.")
 	flag.StringVar(&cnf.permission, "p", "", "Optional: permission to use to authorize transaction ex: actor@active.")
-	flag.UintVar(&cnf.minBundleTx, "b", 10, "Optional: minimum bundled transaction threshold at which an address is renewed. Default = 10.")
+	flag.UintVar(&cnf.minBundleTx, "b", 5, "Optional: minimum bundled transaction threshold at which an address is renewed. Default = 5.")
 	flag.BoolVar(&cnf.persistTx, "t", false, "\nOptional: persist of transaction metadata to the registration db.")
 	flag.StringVar(&cnf.logLevel, "l", "Info", "Optional: logrus log level. Default = 'Info'. Case-insensitive match else Default.")
 	flag.Parse()
@@ -145,9 +147,14 @@ func init() {
 	// Validate optional settings
 	if cnf.permission != "" {
 		if b := matcher.Match([]byte(cnf.permission)); !b {
-			log.Fatalf("permission should be in format actor@permission, got: %s", cnf.permission)
+			log.Fatalf("Permission should be in format actor@permission, got: %s", cnf.permission)
 		}
 	}
+
+	// Init min bundle settings for minBundleTxNx
+	cnf.minBundleTx2x = 2 * cnf.minBundleTx
+	cnf.minBundleTx4x = 4 * cnf.minBundleTx
+	cnf.minBundleTx8x = 8 * cnf.minBundleTx
 
 	log.Infof("DB URL:           %s", cnf.dbUrl)
 	log.Infof("NODEOS API URL:   %s", cnf.nodeosApiUrl)

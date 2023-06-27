@@ -59,10 +59,13 @@ func Run() {
 
 // save is called on any type of exit, and attempts to persist the cache to disk
 func save(sig os.Signal) {
+	log.Println("Received", sig, "attempting to shut down gracefully...save state")
+	log.Println("Disconnecting from DB...")
 	if cnf.pg != nil {
 		cnf.pg.Close()
+		log.Println("Disconnected from DB.")
 	}
-	log.Println("received", sig, "attempting to save state")
+	log.Println("Saving state...")
 	f, err := os.OpenFile(cnf.stateFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		_ = f.Close()
@@ -75,6 +78,7 @@ func save(sig os.Signal) {
 	}
 	_, _ = f.Write(b)
 	_ = f.Close()
+	log.Println("State saved.")
 	log.Fatal("exiting")
 }
 

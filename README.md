@@ -26,10 +26,12 @@ In addition other configuration parameters, i.e., timers, address refresh/cool d
 Configuration items of note are;
 * The DB is queried for new wallets, and new addresses for each wallet (max of 500/wallet) every 30 minutes
 * Address processing occurs every 5 minutes and once an individual address is processed, it is reprocessed based on its remaining bundled transactions;
-    if < 10 the address is refreshed with new bundled transactions
-    if < 20 the address is checked again 1 hour later
-    if < 40 the address is checked 4 hours later
-    if > 40 the address is checked 12 hours later
+  * if < 5 the address is refreshed with new bundled transactions
+  * if < 10 the address is checked 1 hour later (+ 1-10 minutes)
+  * if < 20 the address is checked 4 hours later (+ 1-30 minutes)
+  * if < 40 the address is checked 8 hours later (+ 1-60 minutes)
+  * if > 40 the address is checked 16 hours later (+ 1-120 minutes)
+* For each refresh interval above a random delay of X minutes, denoted in the parenthesis above, is added to allow a load balance factor. The actual value of this random delay is also based on the nbr of remaining transactions, starting at 1-10 minutes and progressing to 1-120 minutes. For an address who tx count falls below the min threshhold and is refreshed, a cooldown period is added of 30-60 minutes. This cooldown period will be updated per the workflow above once the actual transaction count is determined.
 
 ## Building
 
