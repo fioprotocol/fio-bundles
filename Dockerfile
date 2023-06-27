@@ -33,4 +33,4 @@ COPY --from=builder /build/app/bundles /bin/bundles
 USER bundles
 WORKDIR /var/lib/bundles
 
-ENTRYPOINT ["/bin/bundles","-v"]
+ENTRYPOINT ["/bin/bundles"]

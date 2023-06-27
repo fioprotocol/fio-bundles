@@ -35,7 +35,7 @@ Configuration items of note are;
 
 ## Building
 
-This is a standard go project, so can be built with `go build` or `go install`. The `Dockerfile` is provided for convenience and will provide a small container with the binary.
+This is a standard go project, so can be built with `go build` or `go install`. The `Dockerfile` is provided for convenience and is a minimal container with the binary. It must be enhanced to capture the appropriate command-line or env variables.
 
 ### Usage
 

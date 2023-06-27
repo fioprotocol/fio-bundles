@@ -215,6 +215,8 @@ func init() {
 		err = json.Unmarshal(body, cnf.state)
 		if err != nil {
 			badState(err)
+		} else {
+			log.Infof("Total addresses found in state: %d", len(cnf.state.Addresses))
 		}
 	}()
 

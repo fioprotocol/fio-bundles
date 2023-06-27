@@ -80,7 +80,6 @@ func (a *Address) CheckRemaining() (needsBundle bool, err error) {
 		return false, errors.New("address not found")
 	}
 	if result[0].Expiration != 0 && result[0].Expiration < time.Now().UTC().Unix() {
-		log.Infof("%s is expired, skipping", a.DbResponse.Address+"@"+a.DbResponse.Domain)
 		a.Expired = true
 		return false, expiredErr{}
 	}
@@ -169,7 +168,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 		var sb strings.Builder
 		_, _ = sb.WriteString("Skipping addresses (checked previously/tx nbr above min): ")
 
-		log.Info("Checking tx nbr for new/stale addresses...")
+		log.Infof("Checking tx nbr for new/stale addresses...")
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
 			var stale = v.Stale()
@@ -178,12 +177,13 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 					switch e.(type) {
 					case expiredErr:
 						expired = append(expired, k)
+						log.Debugf("Address, %s, is expired, skipping", k)
 						continue
 					}
 					// if not found, it has been purged from state.
 					if e.Error() == "address not found" {
 						expired = append(expired, k)
-						log.Debugf("Purging non-existent (on chain) address, %s, from Address cache", k)
+						log.Infof("Address, %s, not found on-chain. Setting as expired, skipping", k)
 						continue
 					}
 					v.Refreshed = time.Now().UTC().Add(randMinutes(10))
@@ -222,6 +222,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 		for i := range expired {
 			ac.delete(expired[i])
 		}
+		log.Infof("Total valid addresses found to date: %d", len(ac.Addresses))
 		heartbeat <- time.Now().UTC()
 	}
 
