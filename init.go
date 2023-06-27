@@ -62,8 +62,8 @@ var matcher = regexp.MustCompile(`^\w+@\w+$`)
 func init() {
 	// Init static parameters
 	cnf.addressTicker = 5 * time.Minute
-	cnf.bundlesTicker = 20 * time.Minute
-	cnf.dbTicker = 30 * time.Minute
+	cnf.bundlesTicker = 15 * time.Minute
+	cnf.dbTicker = 10 * time.Minute
 	cnf.txTicker = time.Minute
 	cnf.txFinalTicker = time.Minute
 
