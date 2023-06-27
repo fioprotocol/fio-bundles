@@ -167,16 +167,12 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 
 		// Debug log msg setup
 		var sb strings.Builder
-		sb.WriteString("Skipped addresses (checked previously/tx nbr above min): ")
+		_, _ = sb.WriteString("Skipping addresses (checked previously/tx nbr above min): ")
 
 		log.Info("Checking tx nbr for new/stale addresses...")
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
 			var stale = v.Stale()
-			if stale && log.IsLevelEnabled(log.DebugLevel) {
-				sb.WriteString(v.DbResponse.Address)
-				sb.WriteString(", ")
-			}
 			if stale {
 				if u, e := v.CheckRemaining(); e != nil {
 					switch e.(type) {
@@ -205,11 +201,21 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 					v.Refreshed = time.Now().UTC().Add(cooldown)
 					log.Infof("Address, %s, bundled tx refreshed. Setting initial cooldown period of %s", k, cooldown.String())
 				}
+			} else {
+				// Note: if an error occurs above this will be skipped
+				if log.IsLevelEnabled(log.DebugLevel) {
+					sb.WriteString(k)
+					sb.WriteString(",")
+				}
 			}
 		}
 
 		if log.IsLevelEnabled(log.DebugLevel) {
-			log.Debug(sb.String())
+			msg := sb.String()
+			if len(msg) > 0 {
+				msg = msg[:len(msg)-1]
+			}
+			log.Debug(msg)
 		}
 
 		ac.mux.RUnlock()
