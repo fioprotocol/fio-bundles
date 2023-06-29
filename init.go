@@ -13,9 +13,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/fioprotocol/fio-go"
+
+	nlf "github.com/antonfisher/nested-logrus-formatter"
+
 	log "github.com/sirupsen/logrus"
 
-	"github.com/fioprotocol/fio-go"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -47,6 +50,7 @@ type config struct {
 	persistTx     bool
 
 	logLevel string // logrus logging level; must be one of Trace, Debug, Info, Warn, Error, Fatal, Panic.
+	verbose  bool
 }
 
 // cnf is a _package-level_ variable holding a config
@@ -78,18 +82,21 @@ func init() {
 	flag.UintVar(&cnf.minBundleTx, "b", 5, "Optional: minimum bundled transaction threshold at which an address is renewed. Default = 5.")
 	flag.BoolVar(&cnf.persistTx, "t", false, "\nOptional: persist of transaction metadata to the registration db.")
 	flag.StringVar(&cnf.logLevel, "l", "Info", "Optional: logrus log level. Default = 'Info'. Case-insensitive match else Default.")
+	flag.BoolVar(&cnf.verbose, "v", false, "verbose logging")
 	flag.Parse()
 
 	// Init logger
-	//log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.SetReportCaller(cnf.verbose)
 
-	log.SetReportCaller(false)
-
-	// Json formatting
+	// log formatting
 	//log.SetFormatter(&log.JSONFormatter{})
-	log.SetFormatter(&log.TextFormatter{
-		FullTimestamp:   true,
-		TimestampFormat: "2006-01-02 15:04:05",
+	//log.SetFormatter(&log.TextFormatter{
+	//FullTimestamp:   true,
+	//TimestampFormat: "2006-01-02 15:04:05",
+	//})
+	log.SetFormatter(&nlf.Formatter{
+		HideKeys:    true,
+		FieldsOrder: []string{"component", "category"},
 	})
 
 	// log level
@@ -147,7 +154,7 @@ func init() {
 	// Validate optional settings
 	if cnf.permission != "" {
 		if b := matcher.Match([]byte(cnf.permission)); !b {
-			log.Fatalf("Permission should be in format actor@permission, got: %s", cnf.permission)
+			log.Fatal("Permission should be in format actor@permission, got: " + cnf.permission)
 		}
 	}
 
@@ -188,7 +195,7 @@ func init() {
 	if e != nil {
 		log.Fatal(e)
 	}
-	log.Info(fmt.Sprintf("NewWifConnect Account: Actor = %s", cnf.acc.Actor))
+	log.Info("NewWifConnect Account: Actor = " + cnf.acc.Actor)
 
 	// transactions to monitor for finalization
 	erCache = make(map[string]*EventResult)

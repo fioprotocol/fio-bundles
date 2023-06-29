@@ -59,7 +59,7 @@ func Run() {
 
 // save is called on any type of exit, and attempts to persist the cache to disk
 func save(sig os.Signal) {
-	log.Println("Received", sig, "attempting to shut down gracefully...save state")
+	log.Println("Received", sig, "attempting to shut down gracefully...")
 	log.Println("Disconnecting from DB...")
 	if cnf.pg != nil {
 		cnf.pg.Close()
@@ -85,21 +85,14 @@ func save(sig os.Signal) {
 // logIt prints detailed error log information.
 // Note: no way in logrus, slog, etc to skip frame in callstack
 func logIt(v interface{}) {
-	//if !cnf.verbose {
-	//	return
-	//}
 	switch v.(type) {
 	case eos.APIError:
-		//_ = log.Output(fmt.Sprintf("%s: %+v", v.(eos.APIError).Error(), v.(eos.APIError).ErrorStruct))
 		log.Errorf("%s: %+v", v.(eos.APIError).Error(), v.(eos.APIError).ErrorStruct)
 	case error:
-		//_ = log.Output(v.(error).Error())
 		log.Error(v.(error).Error())
 	case string:
-		//_ = log.Output(v.(string))
 		log.Error(v.(string))
 	default:
-		//_ = log.Output(fmt.Sprintf("%+v", v))
 		log.Errorf("%+v", v)
 	}
 }

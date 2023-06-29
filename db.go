@@ -108,7 +108,7 @@ func getEligibleForBundle(ctx context.Context, walletId, minHeight int) ([]*Addr
 	if len(result) == 0 {
 		return nil, nil
 	}
-	log.Infof("Found %d new addresses for wallet id %d", len(result), walletId)
+	log.Infof("Found %d new addresses for wallet id %d at height %d", len(result), walletId, minHeight)
 
 	// update state with highest ID found to keep queries fast:
 	cnf.state.walletMux.Lock()

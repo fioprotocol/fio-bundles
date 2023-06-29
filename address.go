@@ -120,7 +120,7 @@ func (ac *AddressCache) add(addr *AddressResponse) {
 	a := addr.Address + "@" + addr.Domain
 	if ac.Addresses[a] == nil {
 		if !fio.Address(a).Valid() {
-			log.Warn(a + " is not a valid formatted address")
+			log.Warn("Invalid address format: " + a)
 			return
 		}
 		ac.Addresses[a] = NewAddress(addr)
@@ -166,9 +166,9 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 
 		// Debug log msg setup
 		var sb strings.Builder
-		_, _ = sb.WriteString("Skipping addresses (checked previously/tx nbr above min): ")
+		_, _ = sb.WriteString("Addresses (checked previously/not due for recheck/tx nbr above min threshold): ")
 
-		log.Infof("Checking tx nbr for new/stale addresses...")
+		log.Infof("Checking new/stale addresses (validity/tx nbr)...")
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
 			var stale = v.Stale()
@@ -193,10 +193,9 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 				} else if u {
 					addBundle <- v.DbResponse
 
-					// Set an initial cooldown period to slow attacks
-					// Note that it is possible the addBundles tx failed. In this case, the tx will be attempted again
-					// in cnf.refreshTimeout - randMinutes(30), 30-60 minutes. The Refreshed attribute will be updated again
-					// during address processing above.
+					// Set an initial cooldown period to slow attacks. The Refreshed attribute will be updated again
+					// during address processing above. Note that it is possible the addBundles tx failed. In this
+					// case, the tx will be attempted again after the timeout.
 					var cooldown time.Duration = cnf.refreshTimeout - randMinutes(30)
 					v.Refreshed = time.Now().UTC().Add(cooldown)
 					log.Infof("Address, %s, bundled tx refreshed. Setting initial cooldown period of %s", k, cooldown.String())
