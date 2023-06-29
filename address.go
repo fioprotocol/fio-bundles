@@ -83,22 +83,21 @@ func (a *Address) CheckRemaining() (needsBundle bool, err error) {
 		a.Expired = true
 		return false, expiredErr{}
 	}
-	log.Debugf("%s has %d bundled transactions remaining", a.DbResponse.Address+"@"+a.DbResponse.Domain, result[0].Remaining)
 	var txCount = result[0].Remaining
-	if txCount < uint32(cnf.minBundleTx) {
+	if txCount <= uint32(cnf.minBundleTx) {
 		needsBundle = true
 		log.Infof("Address, %s, txCount = %d, is at or below min tx threshold! Refreshing transactions...", a.DbResponse.Address+"@"+a.DbResponse.Domain, txCount)
-	} else if txCount < uint32(cnf.minBundleTx2x) {
-		a.Refreshed = time.Now().UTC().Add(cnf.refreshTimeout + randMinutes(10)) // wait > 60 minutes and < 70 minutes
+	} else if txCount <= uint32(cnf.minBundleTx2x) {
+		a.Refreshed = time.Now().UTC().Add(cnf.refreshTimeout + randMinutes(10)) // wait > 30 minutes and < 40 minutes
 		log.Debugf("Address, %s, tx count = %d. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, txCount, a.Refreshed.Format(time.RFC3339))
-	} else if txCount < uint32(cnf.minBundleTx4x) {
-		a.Refreshed = time.Now().UTC().Add(cnf.refreshTimeout*4 + randMinutes(30)) // wait > 4 hours and < 4.5 hours
+	} else if txCount <= uint32(cnf.minBundleTx4x) {
+		a.Refreshed = time.Now().UTC().Add(cnf.refreshTimeout*4 + randMinutes(30)) // wait > 2 hours and < 2.5 hours
 		log.Debugf("Address, %s, tx count = %d. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, txCount, a.Refreshed.Format(time.RFC3339))
-	} else if txCount < uint32(cnf.minBundleTx8x) {
-		a.Refreshed = time.Now().UTC().Add(cnf.refreshTimeout*8 + randMinutes(60)) // wait > 8 hours and < 9 hours
+	} else if txCount <= uint32(cnf.minBundleTx8x) {
+		a.Refreshed = time.Now().UTC().Add(cnf.refreshTimeout*8 + randMinutes(60)) // wait > 4 hours and < 5 hours
 		log.Debugf("Address, %s, tx count = %d. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, txCount, a.Refreshed.Format(time.RFC3339))
 	} else {
-		a.Refreshed = time.Now().UTC().Add(cnf.refreshTimeout*16 + randMinutes(120)) // wait > 16 hours and < 18 hours
+		a.Refreshed = time.Now().UTC().Add(cnf.refreshTimeout*16 + randMinutes(120)) // wait > 8 hours and < 10 hours
 		log.Debugf("Address, %s, tx count = %d. Will recheck at %s", a.DbResponse.Address+"@"+a.DbResponse.Domain, txCount, a.Refreshed.Format(time.RFC3339))
 	}
 	return
@@ -164,9 +163,12 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 		}()
 		ac.mux.RLock()
 
-		// Debug log msg setup
+		// Debug/trace address logging setup
+		var count int = 0
 		var sb strings.Builder
-		_, _ = sb.WriteString("Addresses (checked previously/not due for recheck/tx nbr above min threshold): ")
+		if log.IsLevelEnabled(log.TraceLevel) {
+			_, _ = sb.WriteString("Addresses in timeout: ")
+		}
 
 		log.Infof("Checking new/stale addresses (validity/tx nbr)...")
 		expired := make([]string, 0)
@@ -196,13 +198,14 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 					// Set an initial cooldown period to slow attacks. The Refreshed attribute will be updated again
 					// during address processing above. Note that it is possible the addBundles tx failed. In this
 					// case, the tx will be attempted again after the timeout.
-					var cooldown time.Duration = cnf.refreshTimeout - randMinutes(30)
+					var cooldown time.Duration = cnf.refreshTimeout + randMinutes(30)
 					v.Refreshed = time.Now().UTC().Add(cooldown)
 					log.Infof("Address, %s, bundled tx refreshed. Setting initial cooldown period of %s", k, cooldown.String())
 				}
 			} else {
+				count++
 				// Note: if an error occurs above this will be skipped
-				if log.IsLevelEnabled(log.DebugLevel) {
+				if log.IsLevelEnabled(log.TraceLevel) {
 					sb.WriteString(k)
 					sb.WriteString(",")
 				}
@@ -210,11 +213,15 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 		}
 
 		if log.IsLevelEnabled(log.DebugLevel) {
+			log.Debugf("Nbr of Addresses skipped (in timeout): %d", count)
+		}
+		if log.IsLevelEnabled(log.TraceLevel) {
 			msg := sb.String()
+
 			if len(msg) > 0 {
 				msg = msg[:len(msg)-1]
 			}
-			log.Debug(msg)
+			log.Trace(msg)
 		}
 
 		ac.mux.RUnlock()

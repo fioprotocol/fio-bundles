@@ -65,13 +65,13 @@ var matcher = regexp.MustCompile(`^\w+@\w+$`)
 // init parses flags or checks environment variables, it updates the package-level 'cnf' struct.
 func init() {
 	// Init static parameters
-	cnf.addressTicker = 5 * time.Minute
-	cnf.bundlesTicker = 15 * time.Minute
-	cnf.dbTicker = 10 * time.Minute
+	cnf.addressTicker = 45 * time.Second
+	cnf.bundlesTicker = 10 * time.Minute
+	cnf.dbTicker = 2 * time.Minute
 	cnf.txTicker = time.Minute
 	cnf.txFinalTicker = time.Minute
 
-	cnf.refreshTimeout = 1 * time.Hour
+	cnf.refreshTimeout = 30 * time.Minute
 
 	// Parse command-line args if any
 	flag.StringVar(&cnf.dbUrl, "d", os.Getenv("DB"), "Required: db connection string. Alternates; ENV ('DB')")
@@ -223,7 +223,7 @@ func init() {
 		if err != nil {
 			badState(err)
 		} else {
-			log.Infof("Total addresses found in state: %d", len(cnf.state.Addresses))
+			log.Infof("Total addresses found in state (cache): %d", len(cnf.state.Addresses))
 		}
 	}()
 
