@@ -49,7 +49,7 @@ func watchFinal(ctx context.Context) {
 				log.Errorf("Unable decode trxid, %s, when checking finalization", v.TrxId)
 				continue
 			}
-			response, e := cnf.api.GetTransaction(b)
+			response, e := ApiSelector().GetTransaction(b)
 			if e != nil {
 				logIt(e)
 				continue
@@ -94,7 +94,7 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 			log.Info("Transaction watcher exiting")
 
 		case <-tick.C:
-			cnf.api.RefreshFees()
+			ApiSelector().RefreshFees()
 			heartbeat <- time.Now().UTC()
 
 		case s := <-addBundle:
@@ -135,7 +135,7 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 			}
 
 			// Get info about the chain
-			gi, err := cnf.api.GetInfo()
+			gi, err := ApiSelector().GetInfo()
 			if err != nil {
 				log.Warn("Unable to refresh block height before tx", err)
 			}
@@ -146,7 +146,7 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 			}
 
 			// Send transaction to chain
-			result, err := cnf.api.SignPushActions(add)
+			result, err := ApiSelector().SignPushActions(add)
 
 			// Log and persist the transaction (if tx persistence is turned on)
 			if err != nil {

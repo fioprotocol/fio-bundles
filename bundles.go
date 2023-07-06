@@ -9,6 +9,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/fioprotocol/fio-go"
 	"github.com/fioprotocol/fio-go/eos"
 )
 
@@ -80,6 +81,20 @@ func save(sig os.Signal) {
 	_ = f.Close()
 	log.Println("State saved.")
 	log.Fatal("exiting")
+}
+
+// ApiSelector returns one of the apis using a simple round-robin algorithm
+func ApiSelector() *fio.API {
+	api := cnf.apis[roundRobinIndex]
+	roundRobinIndex++
+
+	// it means that we reached the end of servers
+	// and we need to reset the counter and start
+	// from the beginning
+	if roundRobinIndex >= len(cnf.apis) {
+		roundRobinIndex = 0
+	}
+	return api
 }
 
 // logIt prints detailed error log information.

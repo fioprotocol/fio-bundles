@@ -56,7 +56,7 @@ func (e expiredErr) Error() string {
 
 // CheckRemaining queries the chain for remaining bundles.
 func (a *Address) CheckRemaining() (needsBundle bool, err error) {
-	gtr, err := cnf.api.GetTableRowsOrder(fio.GetTableRowsOrderRequest{
+	gtr, err := ApiSelector().GetTableRowsOrder(fio.GetTableRowsOrderRequest{
 		Code:       "fio.address",
 		Scope:      "fio.address",
 		Table:      "fionames",
@@ -170,7 +170,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 			_, _ = sb.WriteString("Addresses in timeout: ")
 		}
 
-		log.Infof("Checking new/stale addresses (validity/tx nbr)...")
+		log.Infof("Checking new/stale addresses...")
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
 			var stale = v.Stale()

@@ -2,6 +2,7 @@ package bundles
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -22,6 +23,11 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+const MIN_APIS int = 2
+const MAX_APIS int = 10
+
+var roundRobinIndex int = 0
+
 // config holds all of our connection information.
 type config struct {
 	addressTicker time.Duration // address monitor timeout - address tx check
@@ -32,13 +38,13 @@ type config struct {
 
 	refreshTimeout time.Duration // minimum time to wait before re-checking if an address needs more bundles.
 
-	nodeosApiUrl string
-	wif          string
-	dbUrl        string // expects account:password@hostname/databasename
-	stateFile    string
-	permission   string // expect account@permission
+	nodeosApiUrls string // 1-n api urls, comma-delimted, no spaces; https://thisapi.fio.com,https://thatapi.fio.com
+	wif           string
+	dbUrl         string // expects account:password@hostname/databasename
+	stateFile     string
+	permission    string // expect account@permission
 
-	api   *fio.API
+	apis  [MAX_APIS]*fio.API
 	acc   *fio.Account
 	pg    *pgxpool.Pool
 	state *AddressCache
@@ -62,7 +68,10 @@ var erCache map[string]*EventResult
 // matcher is a compiled global regexp
 var matcher = regexp.MustCompile(`^\w+@\w+$`)
 
-// init parses flags or checks environment variables, it updates the package-level 'cnf' struct.
+//go:embed api_list.txt
+var contents []byte
+
+//init parses flags or checks environment variables, it updates the package-level 'cnf' struct.
 func init() {
 	// Init static parameters
 	cnf.addressTicker = 45 * time.Second
@@ -75,7 +84,7 @@ func init() {
 
 	// Parse command-line args if any
 	flag.StringVar(&cnf.dbUrl, "d", os.Getenv("DB"), "Required: db connection string. Alternates; ENV ('DB')")
-	flag.StringVar(&cnf.nodeosApiUrl, "u", os.Getenv("NODEOS_API_URL"), "Required: nodeos API URL. Alternates; ENV ('NODEOS_API_URL')")
+	flag.StringVar(&cnf.nodeosApiUrls, "a", os.Getenv("NODEOS_API_URLS"), "Optional: 1 or more nodeos API URLs (comma delimited/no spaces). Alternates; ENV ('NODEOS_API_URLS')")
 	flag.StringVar(&cnf.wif, "k", os.Getenv("WIF"), "Required: private key WIF. Alternates; ENV ('WIF')")
 	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: state cache filename.")
 	flag.StringVar(&cnf.permission, "p", "", "Optional: permission to use to authorize transaction ex: actor@active.")
@@ -84,6 +93,13 @@ func init() {
 	flag.StringVar(&cnf.logLevel, "l", "Info", "Optional: logrus log level. Default = 'Info'. Case-insensitive match else Default.")
 	flag.BoolVar(&cnf.verbose, "v", false, "verbose logging")
 	flag.Parse()
+
+	// Init nodeos api urls if not provided on command line
+	if cnf.nodeosApiUrls == "" {
+		if string(contents) != "" {
+			cnf.nodeosApiUrls = strings.Replace(string(contents), "\n", ",", -1)
+		}
+	}
 
 	// Init logger
 	log.SetReportCaller(cnf.verbose)
@@ -135,14 +151,16 @@ func init() {
 	}
 
 	// Validate required settings
-	if cnf.dbUrl == "" && cnf.nodeosApiUrl == "" && cnf.wif == "" {
+	if cnf.dbUrl == "" && cnf.nodeosApiUrls == "" && cnf.wif == "" {
 		emptyFatal(cnf.dbUrl, "Required parameters not provided; DB URL, Nodeos API URL, WIF!")
 	}
 	if cnf.dbUrl == "" {
 		emptyFatal(cnf.dbUrl, "No database connection information specified, provide '-d' or set 'DB'")
 	}
-	if cnf.nodeosApiUrl == "" {
-		emptyFatal(cnf.nodeosApiUrl, "No nodeos API URL specified, provide '-u' or set 'NODEOS_API_URL'")
+	if cnf.nodeosApiUrls == "" {
+		if cnf.nodeosApiUrls == "" {
+			emptyFatal(cnf.nodeosApiUrls, "No nodeos API URLs specified, provide '-a' or set 'NODEOS_API_URLS'")
+		}
 	}
 	if cnf.wif == "" {
 		emptyFatal(cnf.wif, "No private key present, provide '-k' or set 'WIF'")
@@ -164,7 +182,7 @@ func init() {
 	cnf.minBundleTx8x = 8 * cnf.minBundleTx
 
 	log.Infof("DB URL:           %s", cnf.dbUrl)
-	log.Infof("NODEOS API URL:   %s", cnf.nodeosApiUrl)
+	log.Infof("NODEOS API URLs:  %s", cnf.nodeosApiUrls)
 	// Mask out 'most' of the WIF
 	log.Infof("WIF:              %s", maskLeft(cnf.wif))
 	if cnf.permission != "" {
@@ -191,11 +209,35 @@ func init() {
 	}
 
 	// connect to API
-	cnf.acc, cnf.api, _, e = fio.NewWifConnect(cnf.wif, cnf.nodeosApiUrl)
-	if e != nil {
-		log.Fatal(e)
+	apiIndex := 0
+	var api *fio.API
+	var apiUrls []string
+	apiUrls = strings.Split(cnf.nodeosApiUrls, ",")
+	for _, apiUrl := range apiUrls {
+		log.Debugf("Processing apiUrl %s", apiUrl)
+		// only get account once
+		if cnf.acc == nil {
+			cnf.acc, e = fio.NewAccountFromWif(cnf.wif)
+			if e != nil {
+				log.Fatal(e)
+			}
+			log.Info("NewWifConnect Account: Actor = " + cnf.acc.Actor)
+		}
+		api, _, e = fio.NewConnection(cnf.acc.KeyBag, apiUrl)
+		if e != nil {
+			log.Error("API invalid: "+apiUrl, e)
+		} else {
+			cnf.apis[apiIndex] = api
+			apiIndex++
+		}
+		if apiIndex >= MAX_APIS-1 {
+			break
+		}
 	}
-	log.Info("NewWifConnect Account: Actor = " + cnf.acc.Actor)
+	// Log fatal error if insufficient api connections were made
+	if apiIndex+1 < MIN_APIS {
+		log.Fatalf("Insufficient number of FIO APIs exist! Min: %d", MIN_APIS)
+	}
 
 	// transactions to monitor for finalization
 	erCache = make(map[string]*EventResult)
