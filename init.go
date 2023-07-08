@@ -23,8 +23,8 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-const MIN_APIS int = 2
-const MAX_APIS int = 10
+const MIN_API_CNT int = 2
+const MAX_API_CNT int = 10
 
 var roundRobinIndex int = 0
 
@@ -44,7 +44,7 @@ type config struct {
 	stateFile     string
 	permission    string // expect account@permission
 
-	apis  [MAX_APIS]*fio.API
+	apis  []*fio.API
 	acc   *fio.Account
 	pg    *pgxpool.Pool
 	state *AddressCache
@@ -208,13 +208,10 @@ func init() {
 		log.Fatal(e)
 	}
 
-	// connect to API
-	apiIndex := 0
-	var api *fio.API
-	var apiUrls []string
-	apiUrls = strings.Split(cnf.nodeosApiUrls, ",")
+	// Process api urls
+	cnf.apis = make([]*fio.API, 0, 10)
+	apiUrls := strings.Split(cnf.nodeosApiUrls, ",")
 	for _, apiUrl := range apiUrls {
-		log.Debugf("Processing apiUrl %s", apiUrl)
 		// only get account once
 		if cnf.acc == nil {
 			cnf.acc, e = fio.NewAccountFromWif(cnf.wif)
@@ -223,20 +220,22 @@ func init() {
 			}
 			log.Info("NewWifConnect Account: Actor = " + cnf.acc.Actor)
 		}
-		api, _, e = fio.NewConnection(cnf.acc.KeyBag, apiUrl)
+		log.Tracef("Processing apiUrl %s", apiUrl)
+		api, _, e := fio.NewConnection(cnf.acc.KeyBag, apiUrl)
 		if e != nil {
-			log.Error("API invalid: "+apiUrl, e)
+			log.Errorf("API invalid: %s! Error: %s"+apiUrl, e.Error())
 		} else {
-			cnf.apis[apiIndex] = api
-			apiIndex++
+			log.Debugf("Connection to nodeos API, at %s, successful", apiUrl)
+			cnf.apis = append(cnf.apis, api)
 		}
-		if apiIndex >= MAX_APIS-1 {
+		apiCnt := len(cnf.apis)
+		if apiCnt >= MAX_API_CNT-1 {
 			break
 		}
 	}
 	// Log fatal error if insufficient api connections were made
-	if apiIndex+1 < MIN_APIS {
-		log.Fatalf("Insufficient number of FIO APIs exist! Min: %d", MIN_APIS)
+	if len(cnf.apis) < MIN_API_CNT {
+		log.Fatalf("Insufficient number of FIO APIs exist! Min: %d", MIN_API_CNT)
 	}
 
 	// transactions to monitor for finalization
