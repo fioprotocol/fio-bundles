@@ -25,6 +25,10 @@ import (
 
 const MIN_API_CNT int = 2
 const MAX_API_CNT int = 10
+const TWO_FOLD = 2
+const FOUR_FOLD = 4
+const EIGHT_FOLD = 8
+const QUERY_LIMIT = 500
 
 var roundRobinIndex int = 0
 
@@ -223,7 +227,7 @@ func init() {
 		log.Tracef("Processing apiUrl %s", apiUrl)
 		api, _, e := fio.NewConnection(cnf.acc.KeyBag, apiUrl)
 		if e != nil {
-			log.Errorf("API invalid: %s! Error: %s"+apiUrl, e.Error())
+			log.Errorf("API invalid: %s! Error: %s", apiUrl, e.Error())
 		} else {
 			log.Debugf("Connection to nodeos API, at %s, successful", apiUrl)
 			cnf.apis = append(cnf.apis, api)

@@ -164,15 +164,23 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 		ac.mux.RLock()
 
 		// Debug/trace address logging setup
-		var count int = 0
 		var sb strings.Builder
 		if log.IsLevelEnabled(log.TraceLevel) {
 			_, _ = sb.WriteString("Addresses in timeout: ")
 		}
 
 		log.Infof("Checking new/stale addresses...")
+		var i int
+		end := time.Now().Add(cnf.addressTicker)
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
+			// Break out of loop if it runs longer than address ticker
+			// Check every 16 iterations
+			if i&0x0f == 0 {
+				if time.Now().After(end) {
+					break
+				}
+			}
 			var stale = v.Stale()
 			if stale {
 				if u, e := v.CheckRemaining(); e != nil {
@@ -185,7 +193,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 					// if not found, it has been purged from state.
 					if e.Error() == "address not found" {
 						expired = append(expired, k)
-						log.Infof("Address, %s, not found on-chain. Setting as expired, skipping", k)
+						log.Debugf("Address, %s, not found on-chain. Setting as expired, skipping", k)
 						continue
 					}
 					v.Refreshed = time.Now().UTC().Add(randMinutes(10))
@@ -201,13 +209,6 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 					var cooldown time.Duration = cnf.refreshTimeout + randMinutes(30)
 					v.Refreshed = time.Now().UTC().Add(cooldown)
 					log.Infof("Address, %s, bundled tx refreshed. Setting initial cooldown period of %s", k, cooldown.String())
-				}
-			} else {
-				count++
-				// Note: if an error occurs above this will be skipped
-				if log.IsLevelEnabled(log.TraceLevel) {
-					sb.WriteString(k)
-					sb.WriteString(",")
 				}
 			}
 		}
