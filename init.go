@@ -229,7 +229,7 @@ func init() {
 			cnf.apis = append(cnf.apis, api)
 		}
 		apiCnt := len(cnf.apis)
-		if apiCnt >= MAX_API_CNT-1 {
+		if apiCnt >= MAX_API_CNT {
 			break
 		}
 	}
