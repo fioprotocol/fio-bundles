@@ -3,7 +3,6 @@ package bundles
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -85,11 +84,12 @@ func watchDb(ctx context.Context, foundAddr chan *AddressResponse, heartbeat cha
 func getEligibleForBundle(ctx context.Context, walletId, minHeight int) ([]*AddressResponse, error) {
 	rows, err := cnf.pg.Query(
 		ctx,
-		fmt.Sprintf("select id, owner_key, address, domain, wallet_id from account"+
+		"select id, owner_key, address, domain, wallet_id from account"+
 			"  where wallet_id=$1 and address is not null and id>$2"+
-			"  order by id limit %d", QUERY_LIMIT),
+			"  order by id limit $3",
 		walletId,
 		minHeight,
+		QUERY_LIMIT,
 	)
 	if err != nil {
 		logIt(err)

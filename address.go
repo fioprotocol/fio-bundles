@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -171,14 +172,15 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 
 		log.Infof("Checking new/stale addresses...")
 		var i int
-		end := time.Now().Add(cnf.addressTicker)
+		end := time.Now().Add(cnf.addressTimeout)
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
-			// Break out of loop if it runs longer than address ticker
-			// Check every 16 iterations
+			// Check timeout every 16 iterations and break out of loop after timeout
+			// Note: this prevents ongoing address processing to allow other goroutines to execute
 			if i&0x0f == 0 {
 				if time.Now().After(end) {
-					break
+					// Call the schduler to allow another goroutine to run
+					runtime.Gosched()
 				}
 			}
 			var stale = v.Stale()
@@ -213,9 +215,6 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 			}
 		}
 
-		if log.IsLevelEnabled(log.DebugLevel) {
-			log.Debugf("Nbr of Addresses skipped (in timeout): %d", count)
-		}
 		if log.IsLevelEnabled(log.TraceLevel) {
 			msg := sb.String()
 

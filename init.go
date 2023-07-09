@@ -34,11 +34,12 @@ var roundRobinIndex int = 0
 
 // config holds all of our connection information.
 type config struct {
-	addressTicker time.Duration // address monitor timeout - address tx check
-	bundlesTicker time.Duration // process monitor timeout - process check
-	dbTicker      time.Duration // db wallet/account query timeout - data check
-	txTicker      time.Duration // transaction timeout - add bundle check
-	txFinalTicker time.Duration // transaction finalization timeout - tx cleanup
+	addressTicker  time.Duration // address monitor timeout - address tx check
+	addressTimeout time.Duration // address processing timeout - max time to process addresses
+	bundlesTicker  time.Duration // process monitor timeout - process check
+	dbTicker       time.Duration // db wallet/account query timeout - data check
+	txTicker       time.Duration // transaction timeout - add bundle check
+	txFinalTicker  time.Duration // transaction finalization timeout - tx cleanup
 
 	refreshTimeout time.Duration // minimum time to wait before re-checking if an address needs more bundles.
 
@@ -79,6 +80,7 @@ var contents []byte
 func init() {
 	// Init static parameters
 	cnf.addressTicker = 45 * time.Second
+	cnf.addressTimeout = cnf.addressTicker - 5*time.Second
 	cnf.bundlesTicker = 10 * time.Minute
 	cnf.dbTicker = 2 * time.Minute
 	cnf.txTicker = time.Minute

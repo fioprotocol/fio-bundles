@@ -50,7 +50,8 @@ func Run() {
 		case <-watchdog.C:
 			expired := time.Now().UTC().Add(-cnf.bundlesTicker)
 			if expired.After(addrsLast) || expired.After(txLast) || expired.After(dbLast) {
-				log.Println("ERROR: watchdog detected stalled goroutine")
+				log.Errorf("Watchdog detected stalled goroutine; DB: %v, Addr: %v, Tx: %v",
+					expired.After(dbLast), expired.After(addrsLast), expired.After(txLast))
 				cancel()
 				save(syscall.SIGQUIT)
 			}
