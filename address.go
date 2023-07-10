@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -181,7 +180,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 			if i&0x0f == 0 {
 				if time.Now().After(end) {
 					log.Debug("Breaking out of loop to allow other goroutines to execute")
-					break;
+					break
 				}
 			}
 			var stale = v.Stale()
