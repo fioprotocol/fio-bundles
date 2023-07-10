@@ -87,6 +87,9 @@ func save(sig os.Signal) {
 // ApiSelector returns one of the apis using a simple round-robin algorithm
 func ApiSelector() *fio.API {
 	api := cnf.apis[roundRobinIndex]
+	if log.IsLevelEnabled(log.TraceLevel) {
+		log.Tracef("Selected API URL: %s, at Index: %d", api.BaseURL, roundRobinIndex)
+	}
 	roundRobinIndex++
 
 	// it means that we reached the end of servers

@@ -175,12 +175,13 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 		end := time.Now().Add(cnf.addressTimeout)
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
-			// Check timeout every 16 iterations and break out of loop after timeout
-			// Note: this prevents ongoing address processing to allow other goroutines to execute
+			// After timeout (check every 16 iterations), break out of loop and perform post-processing.
+			// Note: this prevents address processing from blocking other goroutines, i.e. after restart
+			// when re-processing cached addresses.
 			if i&0x0f == 0 {
 				if time.Now().After(end) {
-					// Call the schduler to allow another goroutine to run
-					runtime.Gosched()
+					log.Debug("Breaking out of loop to allow other goroutines to execute")
+					break;
 				}
 			}
 			var stale = v.Stale()
