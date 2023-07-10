@@ -7,6 +7,7 @@ https://fio.acherontrading.com
 https://fio.eos.barcelona
 https://api.fio.detroitledger.tech
 https://api.fio.alohaeos.com
+https://fio.blockpane.com
 https://fio.greymass.com
 https://fio.genereos.io
 https://fio.eosusa.io
