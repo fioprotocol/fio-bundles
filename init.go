@@ -89,13 +89,13 @@ func init() {
 	cnf.refreshTimeout = 30 * time.Minute
 
 	// Parse command-line args if any
-	flag.StringVar(&cnf.wif, "k", os.Getenv("WIF"), "Required: private key WIF, for signing transactions. Alternates; ENV ('WIF')")
-	flag.StringVar(&cnf.dbUrl, "d", os.Getenv("DB"), "Required: db connection string. Alternates; ENV ('DB')")
-	flag.StringVar(&cnf.nodeosApiUrls, "a", "", "Optional: One or more nodeos API URLs (comma delimited/no spaces).")
+	flag.StringVar(&cnf.wif, "k", os.Getenv("WIF"), "Required: Private key WIF, for signing transactions. Alternates; ENV ('WIF')")
+	flag.StringVar(&cnf.dbUrl, "d", os.Getenv("DB"), "Required: DB connection string. Alternates; ENV ('DB')")
+	flag.StringVar(&cnf.nodeosApiUrls, "a", "", "Optional: Fio nodeos API URLs (comma delimited/no spaces). A minimum of two (2) are required. Format: 'https://api1.fio.net,https://api2.fio.net'")
 	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: state cache filename.")
-	flag.StringVar(&cnf.permission, "p", "", "Optional: permission to use to authorize transaction ex: actor@active.")
-	flag.UintVar(&cnf.minBundleTx, "b", 5, "Optional: minimum bundled transaction threshold at which an address is renewed. Default = 5.")
-	flag.BoolVar(&cnf.persistTx, "t", false, "\nOptional: persist of transaction metadata to the registration db.")
+	flag.StringVar(&cnf.permission, "p", "", "Optional: Permission to use to authorize transaction ex: actor@active.")
+	flag.UintVar(&cnf.minBundleTx, "b", 5, "Optional: Minimum bundled transaction threshold at which an address is renewed. Default = 5.")
+	flag.BoolVar(&cnf.persistTx, "t", false, "\nOptional: Persist of transaction metadata to the registration db.")
 	flag.StringVar(&cnf.logLevel, "l", "Info", "Optional: logrus log level. Default = 'Info'. Case-insensitive match else Default.")
 	flag.BoolVar(&cnf.verbose, "v", false, "verbose logging")
 	flag.Parse()

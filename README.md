@@ -43,14 +43,21 @@ To build, perform the following steps from the project root;
 * Create the file, api_list.txt, in the project root directory, and populate it with the list of Fio nodeos API URLs.
   * Refer to the file 'testnet_apis.txt', located in the resources directory, for a list of TestNet API URLs
   * Refer to the file 'mainnet_apis.txt', located in the resources directory, for a list of MainNet API URLs
-* Execute the command `go build -trimpath -o bundles cmd/bundles/main.go`
+* Build the fio-bundles application
+
+As an example, to build the bundles application utilizing the mainnet Fio API nodes, execute the following commands from the command line;
+```
+cp resources/mainnet_apis.txt api_list.txt
+go build -trimpath -o bundles cmd/bundles/main.go
+```
+The build file, build.sh, has been provided automating the steps above. To use, execute ./build.sh.
 
 ### Usage
 
 ```
 $ bundles -h
   -a string
-    	Optional: 1 or more nodeos API URLs (comma delimited/no spaces).
+    	Optional: Fio nodeos API URLs (comma delimited/no spaces). A minimum of two (2) are required.
   -b uint
     	Optional: minimum bundled transaction threshold at which an address is renewed. Default = 5. (default 5)
   -d string
