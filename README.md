@@ -37,10 +37,11 @@ Items of note;
 
 ## Building
 
-This is a standard go project, and can be built with `go build` or `go install`. The `Dockerfile` is provided for convenience and is a minimal container with the binary. It must be enhanced to capture the appropriate command-line or env variables. The resource file, api_list.txt, will be built into the binary at build time.
+This is a standard go project, and can be built with `go build` or `go install`. The `Dockerfile` is provided for convenience and is a minimal container with the binary. It must be enhanced to capture the appropriate command-line or env variables. The resource file, api_list.txt, will be built into the binary at build time. Copy or edit the api_list.txt file, including the nodeos API URLs that should be used for API interatction. See the resource directly for the current list of testnet and mainnet API URLs.
 
-To build, execute the following command from the project root;
-* go build -trimpath -o bundles cmd/bundles/main.go
+To build, perform the following steps from the project root;
+* Verify the api_list.txt file contains the correct Fio nodeos API URLs
+* Execute the command `go build -trimpath -o bundles cmd/bundles/main.go`
 
 ### Usage
 
