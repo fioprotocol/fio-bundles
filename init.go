@@ -24,7 +24,7 @@ import (
 )
 
 const MIN_API_CNT int = 2
-const MAX_API_CNT int = 10
+const MAX_API_CNT int = 20
 const TWO_FOLD = 2
 const FOUR_FOLD = 4
 const EIGHT_FOLD = 8
@@ -89,9 +89,9 @@ func init() {
 	cnf.refreshTimeout = 30 * time.Minute
 
 	// Parse command-line args if any
+	flag.StringVar(&cnf.wif, "k", os.Getenv("WIF"), "Required: private key WIF, for signing transactions. Alternates; ENV ('WIF')")
 	flag.StringVar(&cnf.dbUrl, "d", os.Getenv("DB"), "Required: db connection string. Alternates; ENV ('DB')")
-	flag.StringVar(&cnf.nodeosApiUrls, "a", os.Getenv("NODEOS_API_URLS"), "Optional: 1 or more nodeos API URLs (comma delimited/no spaces). Alternates; ENV ('NODEOS_API_URLS')")
-	flag.StringVar(&cnf.wif, "k", os.Getenv("WIF"), "Required: private key WIF. Alternates; ENV ('WIF')")
+	flag.StringVar(&cnf.nodeosApiUrls, "a", "", "Optional: One or more nodeos API URLs (comma delimited/no spaces).")
 	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: state cache filename.")
 	flag.StringVar(&cnf.permission, "p", "", "Optional: permission to use to authorize transaction ex: actor@active.")
 	flag.UintVar(&cnf.minBundleTx, "b", 5, "Optional: minimum bundled transaction threshold at which an address is renewed. Default = 5.")
@@ -157,19 +157,17 @@ func init() {
 	}
 
 	// Validate required settings
-	if cnf.dbUrl == "" && cnf.nodeosApiUrls == "" && cnf.wif == "" {
+	if cnf.wif == "" && cnf.dbUrl == "" && cnf.nodeosApiUrls == "" {
 		emptyFatal(cnf.dbUrl, "Required parameters not provided; DB URL, Nodeos API URL, WIF!")
+	}
+	if cnf.wif == "" {
+		emptyFatal(cnf.wif, "No private key present, provide '-k' or set 'WIF'")
 	}
 	if cnf.dbUrl == "" {
 		emptyFatal(cnf.dbUrl, "No database connection information specified, provide '-d' or set 'DB'")
 	}
 	if cnf.nodeosApiUrls == "" {
-		if cnf.nodeosApiUrls == "" {
-			emptyFatal(cnf.nodeosApiUrls, "No nodeos API URLs specified, provide '-a' or set 'NODEOS_API_URLS'")
-		}
-	}
-	if cnf.wif == "" {
-		emptyFatal(cnf.wif, "No private key present, provide '-k' or set 'WIF'")
+		emptyFatal(cnf.nodeosApiUrls, "No nodeos API URLs specified, provide '-a' or resource file, 'api_list.txt'")
 	}
 
 	// Validate state file exists (either default or file explicitly set on command line)
@@ -187,10 +185,10 @@ func init() {
 	cnf.minBundleTx4x = 4 * cnf.minBundleTx
 	cnf.minBundleTx8x = 8 * cnf.minBundleTx
 
-	log.Infof("DB URL:           %s", cnf.dbUrl)
-	log.Infof("NODEOS API URLs:  %s", cnf.nodeosApiUrls)
 	// Mask out 'most' of the WIF
 	log.Infof("WIF:              %s", maskLeft(cnf.wif))
+	log.Infof("DB URL:           %s", cnf.dbUrl)
+	log.Infof("NODEOS API URLs:  %s", cnf.nodeosApiUrls)
 	if cnf.permission != "" {
 		log.Infof("PERM:             %s", cnf.permission)
 	}
@@ -215,7 +213,7 @@ func init() {
 	}
 
 	// Process api urls
-	cnf.apis = make([]*fio.API, 0, 10)
+	cnf.apis = make([]*fio.API, 0, 30)
 	apiUrls := strings.Split(cnf.nodeosApiUrls, ",")
 	for _, apiUrl := range apiUrls {
 		// only get account once

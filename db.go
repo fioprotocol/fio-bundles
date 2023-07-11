@@ -80,6 +80,36 @@ func watchDb(ctx context.Context, foundAddr chan *AddressResponse, heartbeat cha
 	}
 }
 
+// updateWallets ensures that all wallets with auto_bundles_add are in state
+func updateWallets(ctx context.Context) error {
+	if cnf.state.MinDbAccount == nil {
+		cnf.state.MinDbAccount = make(map[int]int)
+	}
+
+	rows, err := cnf.pg.Query(ctx, "select id, name from wallet where auto_bundles_add = true")
+	if err != nil {
+		logIt(err)
+		return err
+	}
+	cnf.state.walletMux.Lock()
+	defer cnf.state.walletMux.Unlock()
+	for rows.Next() {
+		var i int
+		var s string
+		err = rows.Scan(&i, &s)
+		if err != nil {
+			logIt(err)
+			return err
+		}
+		if cnf.state.MinDbAccount[i] == 0 {
+			// use a 1 to forcibly create the map key:
+			cnf.state.MinDbAccount[i] = 1
+			log.Infof("Found new wallet (w/ auto_bundle_add=true); name: %s, id: %d", s, i)
+		}
+	}
+	return nil
+}
+
 // getEligibleForBundle queries the database table for eligible addresses
 func getEligibleForBundle(ctx context.Context, walletId, minHeight int) ([]*AddressResponse, error) {
 	rows, err := cnf.pg.Query(
@@ -119,36 +149,6 @@ func getEligibleForBundle(ctx context.Context, walletId, minHeight int) ([]*Addr
 	}
 
 	return result, nil
-}
-
-// updateWallets ensures that all wallets with auto_bundles_add are in state
-func updateWallets(ctx context.Context) error {
-	if cnf.state.MinDbAccount == nil {
-		cnf.state.MinDbAccount = make(map[int]int)
-	}
-
-	rows, err := cnf.pg.Query(ctx, "select id, name from wallet where auto_bundles_add = true")
-	if err != nil {
-		logIt(err)
-		return err
-	}
-	cnf.state.walletMux.Lock()
-	defer cnf.state.walletMux.Unlock()
-	for rows.Next() {
-		var i int
-		var s string
-		err = rows.Scan(&i, &s)
-		if err != nil {
-			logIt(err)
-			return err
-		}
-		if cnf.state.MinDbAccount[i] == 0 {
-			// use a 1 to forcibly create the map key:
-			cnf.state.MinDbAccount[i] = 1
-			log.Infof("Found new wallet (w/ auto_bundle_add=true); name: %s, id: %d", s, i)
-		}
-	}
-	return nil
 }
 
 type EventResult struct {
