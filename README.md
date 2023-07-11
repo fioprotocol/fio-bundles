@@ -23,7 +23,7 @@ The following parameter is required and will be pulled from the registration db.
 The following parameter is required and will be read from a resource file within the application.
 * `NODEOS_API_URLS` - FIO API URLs, indicating the Fio API nodes to use. A minimum of two API nodes are required. The expected value is `https://myfioapi.myfio.com,https://herfioapi.herfio.com,...`. These nodes are utilized in a round-robin fashion, as a means of load balancing across the given nodes.
 
-In addition to these parameters, timers, address refresh/cool down durations, etc., are set directly in the config during initialization.
+In addition to these parameters, there are several optional parameters as well timer intervals, address refresh/cool down durations, etc., which are defined in the application config.
 
 Items of note;
 * The DB is queried for new wallets, and new addresses for each wallet (max of 500/wallet) every 2 minutes
@@ -33,7 +33,7 @@ Items of note;
   * if 11-20 the address will be checked 2 hours later (+ 1-30 minutes)
   * if 21-40 the address will be checked 4 hours later (+ 1-60 minutes)
   * if > 40 the address will be checked 8 hours later (+ 1-120 minutes)
-* For each refresh interval above a random delay of X minutes, denoted in the parenthesis above, is added to allow a load balance factor. The actual value of this random delay is also based on the nbr of remaining transactions, starting at 1-10 minutes and progressing to 1-120 minutes. For an address who tx count falls below the min threshhold and is refreshed, a cooldown period is added of 30-60 minutes. This cooldown period will be updated per the workflow above once the actual transaction count is determined.
+* For each refresh interval above, a random delay, denoted in the parenthesis above, is added to allow a load balance factor. The actual value of this random delay is also based on the nbr of remaining transactions, starting at 1-10 minutes and progressing to 1-120 minutes. For an address who tx count falls below the min threshhold and is refreshed, a cooldown period is added of 30-60 minutes. This cooldown period will be updated per the workflow above once the actual transaction count is determined.
 
 ## Building
 
