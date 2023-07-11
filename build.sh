@@ -31,3 +31,6 @@ else
   echo "An error occurred building the FIO Bundles application! Review console output and rebuild."
 fi
 echo
+
+# Clean up resource artifact
+rm -f api_list.txt
