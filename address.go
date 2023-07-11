@@ -119,7 +119,7 @@ func (ac *AddressCache) add(addr *AddressResponse) {
 	a := addr.Address + "@" + addr.Domain
 	if ac.Addresses[a] == nil {
 		if !fio.Address(a).Valid() {
-			log.Warn("Invalid address format: " + a)
+			log.Warnf("Unable to add address to cache! Invalid format: %s", a)
 			return
 		}
 		ac.Addresses[a] = NewAddress(addr)
@@ -228,7 +228,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 		for i := range expired {
 			ac.delete(expired[i])
 		}
-		log.Infof("Total valid addresses found to date: %d", len(ac.Addresses))
+		log.Infof("Total active addresses found to date: %d", len(ac.Addresses))
 		heartbeat <- time.Now().UTC()
 	}
 
