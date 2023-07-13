@@ -80,7 +80,6 @@ var contents []byte
 func init() {
 	// Init static parameters
 	cnf.addressTicker = 45 * time.Second
-	cnf.addressTimeout = cnf.addressTicker - 5*time.Second
 	cnf.bundlesTicker = time.Hour
 	cnf.dbTicker = 45 * time.Second
 	cnf.txTicker = time.Minute

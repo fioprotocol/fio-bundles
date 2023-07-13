@@ -172,7 +172,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 
 		log.Infof("Checking new/stale addresses...")
 		var iter int
-		end := time.Now().Add(cnf.addressTimeout)
+		end := time.Now().Add(cnf.addressTicker)
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
 			// After timeout (check every 16 iterations), break out of loop and perform post-processing.
