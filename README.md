@@ -37,17 +37,17 @@ Items of note;
 
 ## Building
 
-This is a standard go project, and can be built with `go build` or `go install`. The `Dockerfile` is provided for convenience and is a minimal container with the binary. It must be enhanced to capture the appropriate command-line or env variables. The resource file, `api_list.txt`, will be built into the binary, and should be created prior to building the application. See the resource directory for the current list of testnet and mainnet API URLs.
+This is a standard go project, and can be built with `go build` or `go install`. The `Dockerfile` is provided for convenience and is a minimal container with the binary. It must be enhanced to capture the appropriate command-line or env variables. The resource file, `api_list.txt`, will be built into the binary, and should be created prior to building the application. See the resource directory for the current list of test and production API URLs.
 
 To build, perform the following steps from the project root;
 * Create the file, api_list.txt, in the project root directory, and populate it with the list of Fio nodeos API URLs.
-  * Refer to the file 'testnet_apis.txt', located in the resources directory, for a list of TestNet API URLs
-  * Refer to the file 'mainnet_apis.txt', located in the resources directory, for a list of MainNet API URLs
+  * Refer to the file 'uat_apis.txt', located in the resources directory, for a list of Test API URLs
+  * Refer to the file 'prod_apis.txt', located in the resources directory, for a list of Production API URLs
 * Build the fio-bundles application
 
-As an example, to build the bundles application utilizing the mainnet Fio API nodes, execute the following commands from the command line;
+As an example, to build the bundles application utilizing the production Fio API nodes, execute the following commands from the command line;
 ```
-cp resources/mainnet_apis.txt api_list.txt
+cp resources/prod_apis.txt api_list.txt
 go build -trimpath -o bundles cmd/bundles/main.go
 ```
 The build file, build.sh, has been provided automating the steps above. To use, execute ./build.sh.
