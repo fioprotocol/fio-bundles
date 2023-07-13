@@ -81,8 +81,8 @@ func init() {
 	// Init static parameters
 	cnf.addressTicker = 45 * time.Second
 	cnf.addressTimeout = cnf.addressTicker - 5*time.Second
-	cnf.bundlesTicker = 10 * time.Minute
-	cnf.dbTicker = 2 * time.Minute
+	cnf.bundlesTicker = time.Hour
+	cnf.dbTicker = 45 * time.Second
 	cnf.txTicker = time.Minute
 	cnf.txFinalTicker = time.Minute
 

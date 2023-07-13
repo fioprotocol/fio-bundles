@@ -171,7 +171,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 		}
 
 		log.Infof("Checking new/stale addresses...")
-		var i int
+		var iter int
 		end := time.Now().Add(cnf.addressTimeout)
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
@@ -179,7 +179,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 			// Note: this prevents address processing from blocking other goroutines, i.e. after restart
 			// when re-processing cached addresses. if before timeout, call scheduler to see if anything
 			// else is queued up to execute.
-			if i&0x0f == 0 {
+			if iter&0x0f == 0 {
 				if time.Now().After(end) {
 					log.Debug("Breaking out of loop to allow other goroutines to execute")
 					break
@@ -188,6 +188,7 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 					runtime.Gosched()
 				}
 			}
+			iter++
 			var stale = v.Stale()
 			if stale {
 				if u, e := v.CheckRemaining(); e != nil {
@@ -241,6 +242,9 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 		select {
 		case <-ctx.Done():
 			log.Info("Address watcher exiting")
+			for a := range foundAddr {
+				ac.add(a)
+			}
 			return
 
 		case <-tick.C:
@@ -250,4 +254,5 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 			ac.add(s)
 		}
 	}
+
 }
