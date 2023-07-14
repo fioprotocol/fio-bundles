@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -170,9 +169,9 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 			_, _ = sb.WriteString("Addresses in timeout: ")
 		}
 
-		log.Infof("Checking new/stale addresses...")
+		log.Info("Checking new/stale addresses...")
 		var iter int
-		end := time.Now().Add(cnf.addressTicker)
+		end := time.Now().Add(cnf.addressTimeout)
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
 			// After timeout (check every 16 iterations), break out of loop and perform post-processing.
@@ -181,11 +180,8 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 			// else is queued up to execute.
 			if iter&0x0f == 0 {
 				if time.Now().After(end) {
-					log.Debug("Breaking out of loop to allow other goroutines to execute")
+					log.Debug("Exiting address processing to allow other queued work to be performed")
 					break
-				} else {
-					// Call the schduler to allow another goroutine to run
-					runtime.Gosched()
 				}
 			}
 			iter++

@@ -79,9 +79,10 @@ var contents []byte
 //init parses flags or checks environment variables, it updates the package-level 'cnf' struct.
 func init() {
 	// Init static parameters
-	cnf.addressTicker = 45 * time.Second
+	cnf.addressTicker = time.Minute
+	cnf.addressTimeout = 50 * time.Second
 	cnf.bundlesTicker = time.Hour
-	cnf.dbTicker = 45 * time.Second
+	cnf.dbTicker = 50 * time.Second
 	cnf.txTicker = time.Minute
 	cnf.txFinalTicker = time.Minute
 
