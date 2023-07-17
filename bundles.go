@@ -48,7 +48,8 @@ func Run() {
 		case dbLast = <-dbAlive:
 
 		case <-watchdog.C:
-			expired := time.Now().UTC().Add(-(72 * cnf.bundlesTicker))
+			timeNow := time.Now().UTC()
+			expired := timeNow.Add(-24 * cnf.bundlesTicker)
 			if expired.After(addrsLast) || expired.After(dbLast) || expired.After(txLast) {
 				log.Errorf("Watchdog detected expired goroutine; Addr: %v, DB: %v, Tx: %v",
 					expired.After(addrsLast), expired.After(dbLast), expired.After(txLast))
@@ -56,7 +57,7 @@ func Run() {
 				save(syscall.SIGQUIT)
 			}
 
-			stalled := time.Now().UTC().Add(-cnf.bundlesTicker)
+			stalled := timeNow.Add(-cnf.bundlesTicker)
 			addrStalled := stalled.After(addrsLast)
 			dbStalled := stalled.After(dbLast)
 			txStalled := stalled.After(txLast)
@@ -64,13 +65,13 @@ func Run() {
 				log.Errorf("Watchdog detected stalled goroutine; Addr: %v, DB: %v, Tx: %v",
 					addrStalled, dbStalled, txStalled)
 				if addrStalled {
-					log.Errorf("Watchdog detected Address goroutine is stalled. Likely reason is a connectivity issue with API Node(s). Investigate and restart if neccessary")
+					log.Errorf("Watchdog detected Address goroutine is stalled. Last update: %s", addrsLast.Format("Jan 02 15:04:05.000"))
 				}
 				if dbStalled {
-					log.Errorf("Watchdog detected DB goroutine is stalled. Likely reason is a connectivity issue with DB. Investigate and restart if neccessary")
+					log.Errorf("Watchdog detected DB goroutine is stalled. Last update: %s", dbLast.Format("Jan 02 15:04:05.000"))
 				}
 				if txStalled {
-					log.Errorf("Watchdog detected Tx goroutine is stalled. Likely reason is a connectivity issue with API Node(s). Investigate and restart if neccessary")
+					log.Errorf("Watchdog detected Tx goroutine is stalled. Last update: %s", txLast.Format("Jan 02 15:04:05.000"))
 				}
 			}
 		}
