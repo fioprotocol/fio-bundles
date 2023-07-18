@@ -3,12 +3,13 @@ package bundles
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"log"
 	"os"
 	"syscall"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
+	"github.com/fioprotocol/fio-go"
 	"github.com/fioprotocol/fio-go/eos"
 )
 
@@ -31,7 +32,7 @@ func Run() {
 	go cnf.state.watch(ctx, foundAddr, addBundles, addrsAlive)
 	go handleTx(ctx, addBundles, txAlive)
 	if cnf.persistTx {
-		logInfo("Enabling Transaction metadata persistence")
+		log.Info("Enabling Transaction metadata persistence")
 		go watchFinal(ctx)
 	}
 
@@ -47,11 +48,31 @@ func Run() {
 		case dbLast = <-dbAlive:
 
 		case <-watchdog.C:
-			expired := time.Now().UTC().Add(-cnf.bundlesTicker)
-			if expired.After(addrsLast) || expired.After(txLast) || expired.After(dbLast) {
-				log.Println("ERROR: watchdog detected stalled goroutine")
+			timeNow := time.Now().UTC()
+			expired := timeNow.Add(-24 * cnf.bundlesTicker)
+			if expired.After(addrsLast) || expired.After(dbLast) || expired.After(txLast) {
+				log.Errorf("Watchdog detected expired goroutine; Addr: %v, DB: %v, Tx: %v",
+					expired.After(addrsLast), expired.After(dbLast), expired.After(txLast))
 				cancel()
 				save(syscall.SIGQUIT)
+			}
+
+			stalled := timeNow.Add(-cnf.bundlesTicker)
+			addrStalled := stalled.After(addrsLast)
+			dbStalled := stalled.After(dbLast)
+			txStalled := stalled.After(txLast)
+			if addrStalled || dbStalled || txStalled {
+				log.Errorf("Watchdog detected stalled goroutine; Addr: %v, DB: %v, Tx: %v",
+					addrStalled, dbStalled, txStalled)
+				if addrStalled {
+					log.Errorf("Watchdog detected Address goroutine is stalled. Last update: %s", addrsLast.Format("Jan 02 15:04:05.000"))
+				}
+				if dbStalled {
+					log.Errorf("Watchdog detected DB goroutine is stalled. Last update: %s", dbLast.Format("Jan 02 15:04:05.000"))
+				}
+				if txStalled {
+					log.Errorf("Watchdog detected Tx goroutine is stalled. Last update: %s", txLast.Format("Jan 02 15:04:05.000"))
+				}
 			}
 		}
 	}
@@ -59,10 +80,14 @@ func Run() {
 
 // save is called on any type of exit, and attempts to persist the cache to disk
 func save(sig os.Signal) {
+	log.Println("Received", sig, "attempting to shut down gracefully...")
+	log.Println("Disconnecting from DB...")
 	if cnf.pg != nil {
 		cnf.pg.Close()
+		log.Println("Disconnected from DB.")
 	}
-	log.Println("received", sig, "attempting to save state")
+
+	log.Println("Saving state...")
 	f, err := os.OpenFile(cnf.stateFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		_ = f.Close()
@@ -75,22 +100,53 @@ func save(sig os.Signal) {
 	}
 	_, _ = f.Write(b)
 	_ = f.Close()
+	log.Println("State saved.")
 	log.Fatal("exiting")
 }
 
-// logInfo prints detailed log information.
-func logInfo(v interface{}) {
-	if !cnf.verbose {
-		return
+// ApiSelector returns one of the apis using a simple round-robin algorithm
+func ApiSelector() *fio.API {
+	api := cnf.apis[roundRobinIndex]
+	if log.IsLevelEnabled(log.TraceLevel) {
+		log.Tracef("Selected API URL: %s, at Index: %d", api.BaseURL, roundRobinIndex)
 	}
+	roundRobinIndex++
+
+	// it means that we reached the end of servers
+	// and we need to reset the counter and start
+	// from the beginning
+	if roundRobinIndex >= len(cnf.apis) {
+		roundRobinIndex = 0
+	}
+	return api
+}
+
+// logIt prints detailed error log information.
+// Note: no way in logrus, slog, etc to skip frame in callstack
+func logIt(v interface{}) {
 	switch v.(type) {
 	case eos.APIError:
-		_ = log.Output(2, fmt.Sprintf("%s: %+v", v.(eos.APIError).Error(), v.(eos.APIError).ErrorStruct))
+		log.Errorf("%s: %+v", v.(eos.APIError).Error(), v.(eos.APIError).ErrorStruct)
 	case error:
-		_ = log.Output(2, v.(error).Error())
+		log.Error(v.(error).Error())
 	case string:
-		_ = log.Output(2, v.(string))
+		log.Error(v.(string))
 	default:
-		_ = log.Output(2, fmt.Sprintf("%+v", v))
+		log.Errorf("%+v", v)
 	}
+}
+
+func maskLeft(s string) string {
+	rs := []rune(s)
+	if len(s) <= 8 {
+		for i := range rs[:] {
+			rs[i] = '*'
+		}
+		return string(rs)
+	}
+
+	for i := range rs[:len(rs)-8] {
+		rs[i] = '*'
+	}
+	return string(rs)
 }

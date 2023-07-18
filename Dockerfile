@@ -4,6 +4,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y upx
 COPY . /build/app
 WORKDIR /build/app
 
+COPY resources/prod_apis.txt api_list.txt
 RUN go get ./... && go build -ldflags "-s -w" -trimpath -o bundles cmd/bundles/main.go
 RUN upx bundles && upx -t bundles
 
@@ -33,4 +34,4 @@ COPY --from=builder /build/app/bundles /bin/bundles
 USER bundles
 WORKDIR /var/lib/bundles
 
-ENTRYPOINT ["/bin/bundles","-v"]
+ENTRYPOINT ["/bin/bundles"]
