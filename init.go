@@ -171,7 +171,7 @@ func init() {
 	}
 
 	// Validate state file exists (either default or file explicitly set on command line)
-	emptyFatal(cnf.stateFile, "State cache file cannot be empty")
+	emptyFatal(cnf.stateFile, "State cache file must be defined")
 
 	// Validate optional settings
 	if cnf.permission != "" {
@@ -256,6 +256,8 @@ func init() {
 			log.Info("Starting with empty state.")
 			cnf.state = &AddressCache{Addresses: make(map[string]*Address, 0)}
 			return
+		} else {
+			log.Infof("State file, %s, found; Reading pre-existing state", cnf.stateFile)
 		}
 		body, err := io.ReadAll(f)
 		_ = f.Close()
