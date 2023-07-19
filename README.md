@@ -12,7 +12,7 @@ Transaction logging may be added to the registration database upon completion of
 
 ## Configuration
 
-The following parameters are required and, by default, will be pulled from the AWS parameter store. Parameters may be passed in on the command line as well, and will take precedence. See the program help output for a complete list of parameters by executing `bundles -h` from the command line.
+The following parameters are required and, by default, will be read from the environment. Parameters may be passed in on the command line as well, and will take precedence. See the program help output for a complete list of parameters by executing `bundles -h` from the command line.
 
 * `WIF` - the private key to use for signing transactions
 * `DB` - the database connection string. Expected format is `postgres://user:password@host:port/database`
