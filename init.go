@@ -121,14 +121,9 @@ func init() {
 		FieldsOrder: []string{"component", "category"},
 	})
 
-	// log level
+	// log level, allowed log level settings
+	// Note: Panic and Fatal are not allowed to be set explicitly.
 	switch strings.ToLower(cnf.logLevel) {
-	case "panic":
-		log.SetLevel(log.PanicLevel)
-		break
-	case "fatal":
-		log.SetLevel(log.FatalLevel)
-		break
 	case "error":
 		log.SetLevel(log.ErrorLevel)
 		break
@@ -145,7 +140,8 @@ func init() {
 		log.SetLevel(log.TraceLevel)
 		break
 	default:
-		log.SetLevel(log.ErrorLevel)
+		log.Warnf("Log level, %s, unknown/not allowed. Setting to Info level", cnf.logLevel)
+		log.SetLevel(log.InfoLevel)
 	}
 
 	emptyFatal := func(s, m string) {
@@ -192,10 +188,10 @@ func init() {
 	if cnf.permission != "" {
 		log.Infof("PERM:             %s", cnf.permission)
 	}
-	log.Debugf("Data File:        %s", cnf.stateFile)
-	log.Debugf("Min Bundle Tx:    %d", cnf.minBundleTx)
-	log.Debugf("Persist Tx:       %t", cnf.persistTx)
-	log.Debugf("Log Level:        %s", cnf.logLevel)
+	log.Infof("State File:       %s", cnf.stateFile)
+	log.Infof("Log Level:        %s", cnf.logLevel)
+	log.Debugf("Min Bundle Tx:   %d", cnf.minBundleTx)
+	log.Debugf("Persist Tx:      %t", cnf.persistTx)
 
 	var e error
 
