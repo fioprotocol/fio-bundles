@@ -86,8 +86,7 @@ func updateWallets(ctx context.Context) error {
 		cnf.state.MinDbAccount = make(map[int]int)
 	}
 
-	//rows, err := cnf.pg.Query(ctx, "select id, name from wallet where auto_bundles_add = true")
-	rows, err := cnf.pg.Query(ctx, "select id, name from wallet where name = 'Opera'")
+	rows, err := cnf.pg.Query(ctx, "select id, name from wallet where auto_bundles_add = true")
 	if err != nil {
 		logIt(err)
 		return err
