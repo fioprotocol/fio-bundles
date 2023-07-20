@@ -9,6 +9,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/fioprotocol/fio-go"
 	"github.com/fioprotocol/fio-go/eos"
 )
 
@@ -123,11 +124,8 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 				}
 			}
 
-			log.Infof("Address to replenish:    %s, Wallet Id: %d", s.Address+"@"+s.Domain, s.WalletId)
-			log.Infof("Account to use in tx:    %s", actor)
-			log.Infof("Permission to use in tx: %s", permission)
-			log.Infof("Executing fio.NewAddBundlesWithPerm(fio.Address(%s@%s), 1, %s, %s)", s.Address, s.Domain, actor, permission)
-			/*add, err := fio.NewAddBundlesWithPerm(fio.Address(s.Address+"@"+s.Domain), 1, actor, permission)
+			log.Infof("Executing fio.NewAddBundlesWithPerm(fio.Address(%s@%s), 1, %s, %s) for wallet: %d", s.Address, s.Domain, actor, permission, s.WalletId)
+			add, err := fio.NewAddBundlesWithPerm(fio.Address(s.Address+"@"+s.Domain), 1, actor, permission)
 			if err != nil {
 				logIt(err)
 				log.Errorf("Unable to refresh bundled transactions for address, %s", s.Address+"@"+s.Domain)
@@ -158,7 +156,7 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 			}
 			if cnf.persistTx {
 				logTransaction(ctx, event, err != nil)
-			}*/
+			}
 		}
 	}
 }
