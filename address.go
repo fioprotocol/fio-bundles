@@ -174,10 +174,9 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 		end := time.Now().Add(cnf.addressTimeout)
 		expired := make([]string, 0)
 		for k, v := range ac.Addresses {
-			// After timeout (check every 16 iterations), break out of loop and perform post-processing.
+			// Check timeout exceeded (every 16 iterations); if so break out of loop and perform post-processing.
 			// Note: this prevents address processing from blocking other goroutines, i.e. after restart
-			// when re-processing cached addresses. if before timeout, call scheduler to see if anything
-			// else is queued up to execute.
+			// when re-processing cached addresses.
 			if iter&0x0f == 0 {
 				if time.Now().After(end) {
 					log.Debug("Exiting address processing to allow other queued work to be performed")
@@ -250,5 +249,4 @@ func (ac *AddressCache) watch(ctx context.Context, foundAddr, addBundle chan *Ad
 			ac.add(s)
 		}
 	}
-
 }

@@ -124,9 +124,7 @@ func handleTx(ctx context.Context, addBundle chan *AddressResponse, heartbeat ch
 				}
 			}
 
-			log.Infof("Address to replenish:    %s, Wallet Id: %d", s.Address+"@"+s.Domain, s.WalletId)
-			log.Infof("Account to use in tx:    %s", actor)
-			log.Infof("Permission to use in tx: %s", permission)
+			log.Infof("Executing fio.NewAddBundlesWithPerm(fio.Address(%s@%s), 1, %s, %s) for wallet: %d", s.Address, s.Domain, actor, permission, s.WalletId)
 			add, err := fio.NewAddBundlesWithPerm(fio.Address(s.Address+"@"+s.Domain), 1, actor, permission)
 			if err != nil {
 				logIt(err)

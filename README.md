@@ -12,7 +12,7 @@ Transaction logging may be added to the registration database upon completion of
 
 ## Configuration
 
-The following parameters are required and, by default, will be pulled from the AWS parameter store. Parameters may be passed in on the command line as well, and will take precedence. See the program help output for a complete list of parameters by executing `bundles -h` from the command line.
+The following parameters are required and, by default, will be read from the environment. Parameters may be passed in on the command line as well, and will take precedence. See the program help output for a complete list of parameters by executing `bundles -h` from the command line.
 
 * `WIF` - the private key to use for signing transactions
 * `DB` - the database connection string. Expected format is `postgres://user:password@host:port/database`
@@ -20,8 +20,8 @@ The following parameters are required and, by default, will be pulled from the A
 The following parameter is required and will be pulled from the registration db.
 * `PERM` - the permission to use for signing transactions, e.g. `fio.address@active` this option is needed if the account is using a delegated permission. This parameter is currently pulled from the registration database and is associated to the WIF for delegated permission processing, however, it may also be provided on the command line or set in the environment.
 
-The following parameter is required and will be read from a resource file within the application.
-* `NODEOS_API_URLS` - FIO API URLs, indicating the Fio API nodes to use. A minimum of two API nodes are required. The expected value is `https://myfioapi.myfio.com,https://herfioapi.herfio.com,...`. These nodes are utilized in a round-robin fashion, as a means of load balancing across the given nodes.
+The following parameter is required and initialized from a resource file within the application.
+* `NODEOS_API_URLS` - the FIO API node URLs to use for address verification and bundle transactions. A minimum of two API nodes are required. The expected value is `https://myfioapi.myfio.com,https://herfioapi.herfio.com,...`. These nodes are utilized in a round-robin fashion, as a means of load balancing across the given nodes.
 
 In addition to these parameters, there are several optional parameters as well timer intervals, address refresh/cool down durations, etc., which are defined in the application config.
 
