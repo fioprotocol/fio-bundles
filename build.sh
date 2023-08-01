@@ -15,8 +15,8 @@ do
     case $REPLY in
         1) echo;echo "#$REPLY) Production API resource";cp resources/prod_apis.txt api_list.txt;break;;
         2) echo;echo "#$REPLY) UAT API resource";cp resources/uat_apis.txt api_list.txt;break;;
-        3) echo;echo -n "#$REPLY) A custom API nodes resource selected. Create the file, 'api_list.txt' in the root directory. "; read -p "Press any key to proceed..."; break;;
-        4) echo;echo -n "#$REPLY) No API resource selected (will be provided via command-line arg). ";read -p "Press any key to proceed...";touch api_list.txt;break;;
+        3) echo;echo "#$REPLY) Custom API nodes resource. Before proceeding, create file, 'api_list.txt' in the project root.";echo;read -p "Press any key to proceed..."; break;;
+        4) echo;echo "#$REPLY) No API resource selected (will be provided via command-line arg).";echo;read -p "Press any key to proceed...";touch api_list.txt;break;;
         $((${#options[@]}+1))) echo;echo "Note: An API resource is required! Exiting build";exit 1;;
         *) echo;echo "Unknown choice entered: $REPLY. Please try again.";echo
     esac
