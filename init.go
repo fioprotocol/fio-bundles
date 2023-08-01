@@ -91,12 +91,12 @@ func init() {
 	// Parse command-line args if any
 	flag.StringVar(&cnf.wif, "k", os.Getenv("WIF"), "Required: Private key WIF, for signing transactions. Alternates; ENV ('WIF')")
 	flag.StringVar(&cnf.dbUrl, "d", os.Getenv("DB"), "Required: DB connection string. Alternates; ENV ('DB')")
-	flag.StringVar(&cnf.nodeosApiUrls, "a", "", "Optional: Fio nodeos API URLs (comma delimited/no spaces). A minimum of two (2) are required. Format: 'https://api1.fio.net,https://api2.fio.net'")
-	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: state cache filename.")
-	flag.StringVar(&cnf.permission, "p", "", "Optional: Permission to use to authorize transaction ex: actor@active.")
+	flag.StringVar(&cnf.permission, "p", os.Getenv("PERM"), "Optional: Add Bundles transaction authorization permission. Format: actor@perm. Alternates; ENV ('PERM')")
+	flag.StringVar(&cnf.nodeosApiUrls, "a", "", "Optional: Fio nodeos API URLs (comma delimited/no spaces). A minimum of two (2) are required. Format: 'https://api-1.fio.net,https://api-2.fio.net'")
+	flag.StringVar(&cnf.stateFile, "f", "state.dat", "Optional: State cache filename.")
 	flag.UintVar(&cnf.minBundleTx, "b", 5, "Optional: Minimum bundled transaction threshold at which an address is renewed. Default = 5.")
-	flag.BoolVar(&cnf.persistTx, "t", false, "\nOptional: Persist of transaction metadata to the registration db.")
-	flag.StringVar(&cnf.logLevel, "l", "Info", "Optional: logrus log level. Default = 'Info'. Case-insensitive match else Default.")
+	flag.BoolVar(&cnf.persistTx, "t", false, "Optional: Persist of transaction metadata to the registration db.")
+	flag.StringVar(&cnf.logLevel, "l", "Info", "Optional: logrus log level. Default = 'Info'. Case-insensitive match. See logrus.go.")
 	flag.BoolVar(&cnf.verbose, "v", false, "verbose logging")
 	flag.Parse()
 
@@ -104,6 +104,33 @@ func init() {
 	if cnf.nodeosApiUrls == "" {
 		if string(contents) != "" {
 			cnf.nodeosApiUrls = strings.Replace(string(contents), "\n", ",", -1)
+		}
+	}
+
+	// Validate required settings
+	logErrorUsageAndExit := func(m string) {
+		fmt.Println("Usage:")
+		flag.PrintDefaults()
+		fmt.Println("")
+		log.Fatalf("%s! Exiting...", m)
+	}
+	if cnf.wif == "" {
+		log.Error(cnf.wif, "FIO Account private key NOT specified! Provide '-k' or set 'WIF'")
+	}
+	if cnf.dbUrl == "" {
+		log.Error(cnf.dbUrl, "Database connection information NOT specified! Provide '-d' or set 'DB'")
+	}
+	if cnf.nodeosApiUrls == "" {
+		log.Error(cnf.nodeosApiUrls, "Nodeos API URLs NOT specified! Provide '-a' or designate the resource file, 'api_list.txt'")
+	}
+	if cnf.wif == "" || cnf.dbUrl == "" || cnf.nodeosApiUrls == "" {
+		logErrorUsageAndExit("One or more required parameters not provided")
+	}
+
+	// Validate optional settings
+	if cnf.permission != "" {
+		if b := matcher.Match([]byte(cnf.permission)); !b {
+			logErrorUsageAndExit("Permission should be in format actor@permission, got: " + cnf.permission)
 		}
 	}
 
@@ -148,38 +175,6 @@ func init() {
 		log.SetLevel(log.ErrorLevel)
 	}
 
-	emptyFatal := func(s, m string) {
-		if s == "" {
-			flag.PrintDefaults()
-			fmt.Println("")
-			log.Fatal(m)
-		}
-	}
-
-	// Validate required settings
-	if cnf.wif == "" && cnf.dbUrl == "" && cnf.nodeosApiUrls == "" {
-		emptyFatal(cnf.dbUrl, "Required parameters not provided; DB URL, Nodeos API URL, WIF!")
-	}
-	if cnf.wif == "" {
-		emptyFatal(cnf.wif, "No private key present, provide '-k' or set 'WIF'")
-	}
-	if cnf.dbUrl == "" {
-		emptyFatal(cnf.dbUrl, "No database connection information specified, provide '-d' or set 'DB'")
-	}
-	if cnf.nodeosApiUrls == "" {
-		emptyFatal(cnf.nodeosApiUrls, "No nodeos API URLs specified, provide '-a' or resource file, 'api_list.txt'")
-	}
-
-	// Validate state file exists (either default or file explicitly set on command line)
-	emptyFatal(cnf.stateFile, "State cache file must be defined")
-
-	// Validate optional settings
-	if cnf.permission != "" {
-		if b := matcher.Match([]byte(cnf.permission)); !b {
-			log.Fatal("Permission should be in format actor@permission, got: " + cnf.permission)
-		}
-	}
-
 	// Init min bundle settings for minBundleTxNx
 	cnf.minBundleTx2x = 2 * cnf.minBundleTx
 	cnf.minBundleTx4x = 4 * cnf.minBundleTx
@@ -192,10 +187,10 @@ func init() {
 	if cnf.permission != "" {
 		log.Infof("PERM:             %s", cnf.permission)
 	}
+	log.Infof("Log Level:        %s", cnf.logLevel)
 	log.Debugf("Data File:        %s", cnf.stateFile)
 	log.Debugf("Min Bundle Tx:    %d", cnf.minBundleTx)
 	log.Debugf("Persist Tx:       %t", cnf.persistTx)
-	log.Debugf("Log Level:        %s", cnf.logLevel)
 
 	var e error
 
